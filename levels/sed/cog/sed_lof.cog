@@ -1,0 +1,449 @@
+# COG Script for SED level leap of faith
+# user0: sets port symbol to seen
+#
+# [Crt Vavros]
+# ===================================================================
+
+symbols
+    message entered
+    message startup
+    message user0
+    message callback
+    message arrived
+    message pulse
+
+    sector whirlpoolStart
+    sector whirlpoolStop
+    sector introCutscene
+    sector outroCutscene
+    sector killSector1  linkID=1
+    sector killSector2  linkID=1
+    sector killSector3  linkID=1
+    sector killSector4  linkID=1
+    sector killSector5  linkID=1
+    sector killSector6  linkID=1
+    sector killSector7  linkID=1
+    sector killSector8  linkID=1
+    sector killSector9  linkID=1
+    sector killSector10 linkID=1
+
+    thing indyActor
+    thing outroIndyActor nolink
+    thing player         local
+
+    # whirlpool fx
+    thing whirlpoolPos                    nolink
+    template tplWhirlpool=energywhirlpool local
+    thing whirlpoolDust                   local
+
+    # intro actor pos
+    thing introIndyPos1  nolink
+    thing introIndyPos2  nolink
+    thing introIndyLook1 nolink
+    thing introIndyLook2 nolink
+    thing introIndyLook3 nolink
+
+    # intro cam pos & look
+    thing camIntroSpot1 nolink
+    thing camIntroLook1 nolink
+    thing camIntroSpot2 nolink
+    thing camIntroLook2 nolink
+    thing camIntroSpot3 nolink
+    thing camIntroSpot4 nolink
+    thing camIntroLook4 nolink
+    thing camIntroSpot5 nolink
+
+    # outro cam stuff
+    thing outroFader   nolink
+    thing camOutroLook nolink
+    thing camOutroSpot nolink
+
+    # intermezzo camera pos
+    thing camIntermezzoPos  nolink
+    thing camIntermezzoLook nolink
+
+    # light fx
+    thing lightObj1 mask=0x1
+    thing lightObj2 nolink
+
+    # aetherium teleport cog
+    cog aetport nolink
+
+    # fx cogs used
+    cog cogAmbientSound nolink
+    cog lightfx1 nolink
+    cog lightfx2 nolink
+    cog lightfx3 nolink
+    cog lightfx4 nolink
+    cog lightningfx nolink
+
+    # keyframes
+    keyframe inSideToHips=0in_stand1_bd_4.key local
+    keyframe inHandsOnHips=0in_stand4.key     local
+    keyframe inHatPush=0in_figithat_4_4.key   local
+    keyframe inRubHead=0in_rubhead_4_4.key    local
+    keyframe inBdFall=sed_in_bd_fall.key      local
+    keyframe inFall=sed_in_fall.key           local
+
+    # sounds
+    sound introMusic=mus_bab_tablettrans.wav local
+    sound fallSecSnd=inf_amb_loop_3.wav      local
+
+    # indy voice lines
+    sound inWhereAmI=sed07j01.wav        local # Whoa, where am I?
+    sound inSymbolInBook=sed07j02.wav    local # Is that supposed to be the symbol I saw in that book?
+    sound inPeculiarSymbol=sed07j03a.wav local # What a peculiar symbol engraved on that wall, one I certainly don't recognize.
+    sound inWhatCouldMean=sed07j03b.wav  local # What could it possibly mean?
+    sound inSurprized=sed07j04.wav       local # Ohh my... that couldn't be... could it?
+    sound inFallScream=inxj015.wav       local
+
+    # models
+    model inNoHatHead=head_in_goodhair.3do local
+    model inHandHat=hand_in_hat.3do        local
+
+    # local vars
+    int bIntroPlayed=0         local
+    int bSymbolSeen=0          local
+    int bLimbo=0               local
+    int lightFxFrame=0         local
+    int inKeyTrack             local
+    int secSnd                 local
+    int meshRefHat             local
+    int meshRefHead            local
+    int meshRefHand            local
+    int hatMesh                local
+    int headMesh               local
+    int handMesh               local
+    int callNum                local
+    int i                      local
+
+    # subroutines
+    float PlayIntroCutscene=1 local
+    float PlayOutroCutscene=1 local
+    float DeathFall=1         local
+    float StartLimbo=1        local
+end
+
+code
+    startup:
+        Sleep(0.1); # Let's system initializes..
+        player   = GetLocalPlayerThing();
+        hatMesh  = GetMeshByName(indyActor, "inhat");
+        headMesh = GetMeshByName(indyActor, "inhead");
+        handMesh = GetMeshByName(indyActor, "inrhand");
+        SetThingAlpha(outroFader, 0.0);
+        SetThingFlags(outroFader, 0x80000); # disable fader
+
+        # Make sure kill sectors have falldeath flag set
+        for (i = 0; i < 9; i = i + 1) {
+            SetSectorFlags(killSector1[i], 0x40); # 0x40 - SITH_SECTOR_FALLDEATH
+        }
+
+        Call StartLimbo;
+    return;
+
+    user0:
+        bSymbolSeen = 1;
+    return;
+
+    entered:
+        if (GetSourceRef() != player) {
+            return;
+        }
+
+        if (GetSenderID() == 1) {
+            Call DeathFall;
+        }
+        else if (GetSenderRef() == introCutscene) {
+            Call PlayIntroCutscene;
+        }
+        else if (GetSenderRef() == outroCutscene)
+        {
+            if (GetThingHealth(player) > 0) {
+                Call PlayOutroCutscene;
+            }
+        }
+        else if (GetSenderRef() == whirlpoolStart) {
+            SetPulse(0.7);
+        }
+        else if (GetSenderRef() == whirlpoolStop) {
+            SetPulse(0.0);
+        }
+    return;
+
+    PlayIntroCutscene:
+        if (bIntroPlayed != 0) {
+            return;
+        }
+
+        bIntroPlayed = 1;
+        SetThingAlpha(outroFader, 0.0);
+
+        StartCutscene(2);
+        PlaySoundLocal(introMusic, 0.8, 0.0, 0x0, 0);
+
+        # Prepare indy actor
+        MakeMeStop();
+        DeselectWeaponWait(player); # put away weapon
+        CopyPlayerHolsters(player, indyActor);
+        ClearThingFlags(indyActor, 0x80000);
+        SetThingFlags(player, 0x80000);
+
+        # Setup camera
+        SetCameraFOV(90, 0, 0);
+        SetCameraLookInterp(2, 0);
+        SetCameraPosInterp(2, 0);
+        SetCameraFocus(2, camIntroSpot1);
+        SetCameraSecondaryFocus(2, camIntroLook1);
+        Sleep(0.01);
+        SetCameraLookInterp(2, 1); # enable pan & tilt
+        SetCameraPosInterp(2, 1); # enable dolly
+        Sleep(0.01);
+
+        # Switch to cam 2
+        SetCurrentCamera(2);
+        SetCameraFOV(55, 1, 2.0);
+
+        # Indy walks to place
+        AISetCutSceneMode(indyActor);
+        AISetMoveSpeed(indyActor, 1.1);
+        AISetLookThing(indyActor, introIndyLook1);
+        AISetMoveThing(indyActor, introIndyPos1, 0);
+
+        # Move camera dolly behind the indy
+        SetCameraInterpSpeed(2, 4.5); # speed is actually time
+        SetCameraSecondaryFocus(2, camIntroLook2);
+        SetCameraFocus(2, camIntroSpot2);
+        Sleep(2.8);
+
+        # Indy put hands on hip
+        inKeyTrack = PlayKey(indyActor, inHandsOnHips, 2, 0x0, 0);
+        PlayKey(indyActor, inSideToHips, 4, 0x12, 0);
+        Sleep(0.5);
+
+        AISetLookThing(indyActor, introIndyLook2); # look port symbol
+        Sleep(0.8);
+
+        PlayVoice(indyActor, inWhereAmI, 1.0, 0); # say where am I
+        Sleep(0.4);
+
+        # Camera should be behind indy now
+        SetCameraInterpSpeed(2, 2.2);
+        SetCameraFocus(2, camIntroSpot3);
+        Sleep(2.0);
+
+        # Indy notices engraved symbol
+        if (bSymbolSeen)
+        {
+            PlayKey(indyActor, inRubHead, 4, 0x12, 0);
+            Sleep(0.6);
+            PlayVoice(indyActor, inSymbolInBook, 1.0, 1);
+            Sleep(1.2);
+        }
+        else
+        {
+            PlayKey(indyActor, inHatPush, 4, 0x12, 0);
+            Sleep(0.3);
+
+            PlayVoice(indyActor, inPeculiarSymbol, 1.0, 1);
+            Sleep(0.1);
+            PlayVoice(indyActor, inWhatCouldMean, 1.0, 1);
+        }
+
+        # Indy walks to edge
+        StopKey(indyActor, inKeyTrack, 0.5);
+        Sleep(0.5);
+        SetCameraInterpSpeed(2, 0.6);
+        SetCameraSecondaryFocus(2, indyActor);
+        AISetLookThing(indyActor, introIndyLook1);
+        AISetMoveThing(indyActor, introIndyPos2, 1);
+        AISetLookThing(indyActor, introIndyLook3); # indy looks at portal
+        Sleep(0.3);
+        PlayVoice(indyActor, inSurprized, 1, 0);
+        Sleep(0.3);
+
+        # Move camera up to reveal portal
+        SetCameraInterpSpeed(2, 9);
+        SetCameraFOV(65, 1, 4.0);
+        SetCameraSecondaryFocus(2, camIntroLook4);
+        SetCameraFocus(2, camIntroSpot4);
+        Sleep(9);
+        SetCameraInterpSpeed(2, 5);
+        SetCameraSecondaryFocus(2, camIntroLook4);
+        SetCameraFocus(2, camIntroSpot5);
+        Sleep(3.8);
+
+        # End cutscene
+        CopyOrientAndPos(indyActor, player);
+        SetThingFlags(indyActor, 0x80000);
+        ClearThingFlags(player, 0x80000); # show player
+        ClearActorFlags(player, 0x200000); # enable controls
+
+        SetCurrentCamera(1);
+        ResetCameraFOV(0, 0);
+
+        SetCameraLookInterp(2, 0);
+        SetCameraPosInterp(2, 0);
+
+        # cleanup
+        DestroyThing(indyActor);
+        DestroyThing(introIndyLook1);
+        DestroyThing(introIndyPos1);
+        DestroyThing(introIndyPos2);
+        DestroyThing(introIndyLook1);
+        DestroyThing(introIndyLook2);
+        DestroyThing(introIndyLook3);
+        DestroyThing(camIntroSpot1);
+        DestroyThing(camIntroLook1);
+        DestroyThing(camIntroSpot2);
+        DestroyThing(camIntroLook2);
+        DestroyThing(camIntroSpot3);
+        DestroyThing(camIntroSpot4);
+        DestroyThing(camIntroLook4);
+        DestroyThing(camIntroSpot5);
+
+        EndCutscene();
+    return;
+
+    PlayOutroCutscene:
+        SetThingAlpha(outroFader, 0.0); # quick load sometimes doesn't store thing info
+        secSnd = PlaySoundLocal(fallSecSnd, 0.75, 0.0, 0x1, 0); # 0x1 - SOUNDPLAY_LOOP
+        if (BitTest(GetThingFlags(player), 0x200)) { #0x200 - SITH_TF_DYING
+            return;
+        }
+
+        SetActorFlags(player, 0x200000); # disable controls
+        PlayKey(player, inBdFall, 12, 0x12, 0);
+        Sleep(1.0);
+        PlayVoice(player, inFallScream, 1.0, 0);
+        Sleep(0.3);
+
+        StartCutscene(2);
+
+        # Setup camera
+        MoveToFrame(camOutroSpot, 0, 0.1); # fixes fader start orient
+        Sleep(0.1);
+        SetCameraFocus(2, camOutroSpot);
+        SetCameraSecondaryFocus(2, camOutroLook);
+
+        # Disable camera dolly mode
+        SetCameraLookInterp(2, 0);
+        SetCameraPosInterp(2, 0);
+        SetCurrentCamera(2);  # Switch to cam 2
+        SetCameraFOV(90, 0, 0);
+
+        # Bring in actor
+        CopyPlayerHolsters(player, outroIndyActor);
+        SetPhysicsFlags(outroIndyActor, 0x40000); # SITH_PF_PARTIALGRAVITY
+        PlayKey(outroIndyActor, inFall, 12, 0x10, 0);
+        ClearThingFlags(outroIndyActor, 0x80000); # show actor
+        SetThingFlags(player, 0x80000); # hide player
+
+        Sleep(0.1);
+
+        # Start moving camera to spot 2
+        AttachThingToThing(outroFader, camOutroSpot);
+        MoveToFrame(camOutroSpot, 1, 1.0);
+        SetPulse(0.0); # Stop whirlpool
+        Sleep(1);
+
+        # Fade-out
+        ClearThingFlags(outroFader, 0x80000); # show fader
+        ThingFadeAnim(outroFader, 0.0, 1.0, 3, 0);
+        ChangeSoundVol(secSnd, 0.0, 3);
+        SendMessage(cogAmbientSound, user1); # fadeout ambient sound
+        Sleep(3.2);
+
+        # Move cam to intermezzo position
+        SetCameraFocus(2, camIntermezzoPos);
+        SetCameraSecondaryFocus(2, camIntermezzoLook);
+
+        # Cleanup
+        for (i = 0; i < 5; i = i + 1) {
+            SendMessage(lightfx1[i], user1); # stop fx
+        }
+
+        StopThing(camOutroSpot);
+        DestroyThing(outroIndyActor);
+        DestroyThing(whirlpoolPos);
+
+        # Wait 5 secs before warp travel
+        Sleep(5);
+
+        # Now travel to aetherium
+        # Note, aet port cog will end scene (see sed_aetskyport.cog)
+        SendMessage(aetport, user0);
+
+        # Cleanup
+        bLimbo=0;
+        Sleep(5);
+        DestroyThing(camOutroSpot);
+        DestroyThing(camOutroLook);
+        DestroyThing(outroFader);
+        DestroyThing(lightObj1);
+        DestroyThing(lightObj2);
+    return;
+
+    DeathFall:
+        SetThingAlpha(outroFader, 0.0); # quick load sometimes doesn't store thing info
+        if (!BitTest(GetThingFlags(player), 0x200)) { #0x200 - SITH_TF_DYING
+            SetThingFlags(player, 0x200);
+        }
+
+        StartCutscene(2);
+        SetCameraFadeThing(2, outroFader, camOutroSpot, 0);
+        SetCurrentCamera(2);
+        ClearThingFlags(outroFader, 0x80000);      # show fader
+        ThingFadeAnim(outroFader, 0.0, 1.0, 3, 0); # fade-out
+        SendMessage(cogAmbientSound, user1);       # fadeout ambient sound
+    return;
+
+    callback:
+        if (GetSenderRef() != indyActor) {
+            return;
+        }
+
+        # 0in_rubhead_4_4.key hat in hand handling
+        callNum = GetParam(1);
+        if (callNum == 21) # Put hat in hand
+        {
+            meshRefHat  = SetThingMesh(indyActor, hatMesh, inNoHatHead, 1);
+            meshRefHead = SetThingMesh(indyActor, headMesh, inNoHatHead, 0);
+            meshRefHand = SetThingMesh(indyActor, handMesh, inHandHat, 0);
+            SetThingVoiceHeads(indyActor, "inhead", "head_in_goodhair.3do", "head_in_asound_gh.3do", "head_in_amsound_gh.3do", "head_in_osound_gh.3do");
+        }
+        else if (callNum == 22) # Restore
+        {
+            RestoreThingMesh(indyActor, meshRefHat);
+            RestoreThingMesh(indyActor, meshRefHead);
+            RestoreThingMesh(indyActor, meshRefHand);
+            SetThingVoiceHeads(indyActor, "inhead", "", "head_in_asound.3do", "head_in_amsound.3do", "head_in_osound.3do");
+        }
+    return;
+
+    StartLimbo:
+        if (bLimbo) return;
+        bLimbo = 1;
+
+        #ThingLightAnim(lightObj1, '0.0 0.0 5', 4, '0 0 10', 4.5, 1.0);
+        #ThingLightAnim(lightObj2, '0.0 0.0 5', 4, '0 0 10', 4.5, 1.0);
+
+        lightFxFrame = !lightFxFrame;
+        RotatePivot(lightObj1, lightFxFrame, 1.0);
+        RotatePivot(lightObj2, lightFxFrame, 1.0);
+    return;
+
+    arrived:
+        if (!bLimbo) return;
+        if (GetSenderRef() != lightObj1) return;
+        lightFxFrame = !lightFxFrame;
+        RotatePivot(lightObj1, lightFxFrame, 1.0);
+        RotatePivot(lightObj2, lightFxFrame, 1.0);
+    return;
+
+    pulse:
+        whirlpoolDust = CreateThing(tplWhirlpool, whirlpoolPos);
+        SetLifeLeft(whirlpoolDust, 15);
+    return;
+end
+

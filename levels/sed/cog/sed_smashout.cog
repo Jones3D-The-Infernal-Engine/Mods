@@ -1,0 +1,254 @@
+# Cog script for blasting wall with IMP1
+#
+# Script blasts wall and plays eerie music.
+#
+# [Crt Vavros]
+# ===================================================================
+
+symbols
+    message startup
+    message activated
+    message damaged
+    message pulse
+
+    # Cam stuff
+    thing saycam
+    thing cam1spot local
+    thing cam1look local
+
+    # Things
+    thing bombpos   nolink
+    thing fragment  local
+    thing dustthing local
+    thing player    local
+
+    # Surfaces
+    surface crackedwall mask=0x408 # player, weapon
+
+    # Sectors
+    sector noseesector nolink
+
+    # Materials
+    material dustmat=gen_a4sfx_dustcloud.mat local
+
+    # Sound fx
+    sound explosion=shw_wall_crash.wav local
+    sound sfxCharge=imp1_chargeup.wav  local
+    sound rumble=sol_block_crash_c.wav local #imp1_wall_break.wav local
+    sound mus=mus_gen_eerie1.wav       local
+
+    # Voice lines
+    sound inCrumble=Inxj025.wav local # ...ready to crumble.
+    sound inVibrate=Inxj026.wav local # a little vibration...
+    sound smthWrong=inxj090.wav local
+
+    # Templates
+    template debris=stoneshrapa_nc local
+    template dust=dustcloud4ever   local
+
+    # Local vars
+    int i=0 local
+
+    # Subroutines
+    flex SayHintLine=0.0 local
+    flex SmashWall=0.0   local
+end
+
+code
+    startup:
+        Sleep(0.01); # Let the engine initializes a bit
+        player = GetLocalPlayerThing();
+
+        # make walls no-move, no-see, and visible
+        ClearAdjoinFlags(crackedwall, 0x2);
+        ClearAdjoinFlags(crackedwall, 0x1);
+        SetFaceGeoMode(crackedwall, 4);
+        SetSectorAdjoins(noseesector, 0);
+    return;
+
+    activated:
+        if (GetSenderRef() != crackedwall) return;
+
+        # For testing
+        if (InEditor())
+        {
+            Call SmashWall;
+            return;
+        }
+
+        if (GetCurWeapon(player) == 14 && global14 == 1)
+        {
+            Call SmashWall;
+            return;
+        }
+
+        Call SayHintLine;
+    return;
+
+    damaged:
+        # If not damaged with IMP1 return
+        if (GetParam(1) != 0x1000) return;
+
+        player = GetLocalPlayerThing();
+        if (global14 != 1)
+        {
+            Sleep(1);
+            Call SayHintLine;
+            return;
+        }
+        # passthrough to SmashWall
+
+    SmashWall: # Common routin for wall being damaged by imp1 or activated by ipm1
+        if (MakeMeStop() == -1) return;
+
+        StartCutscene(1);
+
+        # Clear those adjoins aforehand
+        SetSectorAdjoins(noseesector, 1);
+
+        # Setup offset camera
+        cam1spot = CreateThing(GetThingTemplate(saycam), saycam);
+        cam1look = CreateThing(GetThingTemplate(saycam), saycam);
+        MakeCamera2LikeCamera1(cam1spot, cam1look);
+        SetCameraLookInterp(2, 0);
+        SetCameraPosInterp(2, 0);
+        SetCameraFocus(2, cam1spot);
+        SetCameraSecondaryFocus(2, cam1look);
+        SetCurrentCamera(2);
+        ResetCameraFOV(0, 0.0);
+        SetCameraLookInterp(2, 1);
+        SetCameraPosInterp(2, 1);
+        SetCameraInterpSpeed(2, 0.7);
+        Sleep(0.01);
+        SetCameraFocus(2, saycam);
+        SetCameraSecondaryFocus(2, bombpos);
+
+        # Start quake
+        SetPulse(0.05);
+
+        # Alter fov for zoom-in effect
+        SetCameraFOV(70, 1, 2.5);
+
+        # Play sfx
+        PlaySoundLocal(sfxCharge, 1.0, 0.0, 0x0, 0);
+
+        # Light up the player
+        SetThingLight(bombpos, '0.25 0.55 1.0', 5.0, 2.0);
+        Sleep(1.5);
+
+        # Start up the rumble sound
+        PlaySoundLocal(rumble, 1.0, 0.0, 0x0, 0);
+        Sleep(1);
+
+        # Reset fov
+        SetCameraFOV(90, 0, 0.0);
+
+        # Kill dynamic light
+        SetThingLight(bombpos, '0.0 0.0 0.0', 5.0, 2.0);
+
+        # Play explosion sfx
+        PlaySoundLocal(explosion, 1, 0, 0x0, 0);
+
+        # Play eerie music
+        PlaySoundLocal(mus, 1.0, 0.0, 0x0, 0);
+
+        # Create debris
+        for (i = 0; i < 8; i = i + 1)
+        {
+            fragment = CreateThing(debris, bombpos);
+            SetThingVel(fragment, VectorScale(VectorAdd(RandVec(), '-0.5 -0.1 0.0'), 1));
+            SetThingRotVel(fragment, VectorScale(VectorAdd(RandVec(), '0.0 0.0 0.0'), 200.0));
+            Sleep(0.025);
+        }
+
+        # Hide wall
+        SetAdjoinFlags(crackedwall, 0x3);
+        SetFaceGeoMode(crackedwall, 0);
+
+        # Stop quake
+        SetPulse(0);
+
+        # Animate dust sprites
+        SetMaterialCel(dustmat, 0);
+        MaterialAnim(dustmat, 1.0, 1);
+        dustthing = CreateThing(dust, bombpos);
+        AnimateSpriteSize(dustthing, '0.2 0.2 0.5', '0.6 0.6 0.0', 4.0);
+        sleep(0.3);
+        dustthing = CreateThing(dust, bombpos);
+        AnimateSpriteSize(dustthing, '0.2 0.2 0.5', '0.6 0.6 0.0', 4.0);
+        Sleep(0.5);
+
+        # Restore camera and get rid of objects
+        SetCameraLookInterp(2, 0);
+        SetCameraPosInterp(2, 0);
+        SetCameraPosition(1, GetThingPos(saycam));
+        SetCurrentCamera(1);
+        DestroyThing(cam1spot);
+        DestroyThing(cam1look);
+
+        # Restore controls & cam
+        ClearActorFlags(player, 0x200000); # enable controls
+        RestoreExtCam();
+        EndCutscene();
+    return;
+
+    SayHintLine:
+        if (MakeMeStop() == -1) return;
+
+        StartCutscene(0);
+
+        # Setup offset camera
+        cam1spot = CreateThing(GetThingTemplate(saycam), saycam);
+        cam1look = CreateThing(GetThingTemplate(saycam), saycam);
+        MakeCamera2LikeCamera1(cam1spot, cam1look);
+        SetCameraLookInterp(2, 0);
+        SetCameraPosInterp(2, 0);
+        SetCameraFocus(2, cam1spot);
+        SetCameraSecondaryFocus(2, cam1look);
+        SetCurrentCamera(2);
+        ResetCameraFOV(0, 0.0);
+        SetCameraLookInterp(2, 1);
+        SetCameraPosInterp(2, 1);
+        SetCameraInterpSpeed(2, 0.7);
+        Sleep(0.01);
+        SetCameraFocus(2, saycam);
+        SetCameraSecondaryFocus(2, bombpos);
+
+        # Shift say line every activation
+        Sleep(0.3);
+
+        if (GetCurWeapon(player) == 14)
+        {
+            Sleep(0.3);
+            PlayVoice(player, smthWrong, 1.0, 1);
+        }
+        else
+        {
+            DeselectWeaponWait(player);
+            if (i == 0) {
+                PlayVoice(player, inVibrate, 1.0, 1);
+            }
+            else {
+                PlayVoice(player, inCrumble, 1.0, 1);
+            }
+
+            i = 1 - i;
+        }
+
+        # Restore camera and cleanup
+        SetCameraLookInterp(2, 0);
+        SetCameraPosInterp(2, 0);
+        SetCameraPosition(1, GetThingPos(saycam));
+        SetCurrentCamera(1);
+        ResetCameraFOV(0, 0.0);
+        DestroyThing(cam1spot);
+        DestroyThing(cam1look);
+
+        ClearActorFlags(player, 0x200000);
+        EndCutscene();
+    return;
+
+    pulse:
+        SetPOVShake('0.0 0.0 0.001', '0.0 0.0 0.0', 80.0, 0.80);
+    return;
+end

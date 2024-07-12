@@ -1,0 +1,164 @@
+# SED master script
+#
+# [Crt Vavros]
+#======================================================================================
+
+symbols
+    message startup
+    message user0
+
+    # Things
+    thing indyActor    nolink
+    thing title        nolink
+    thing crono        nolink
+
+    thing fadePlate    nolink
+    thing camStartPos  nolink
+    thing camIndyPos   nolink
+    thing camStartLook nolink
+    thing camIndyLook  nolink
+
+    thing player       local
+
+    # Sounds
+    sound introMusic=mus_gen_indy_a_theme1.wav local
+    sound inTimeToGoToWork=Cn01j01.wav         local
+
+    # Keyframes
+    keyframe inHandsOnHips=0in_stand4.key    local
+    keyframe inFigitHat=0in_figithat_4_4.key local
+
+    # Local vars
+    int bSeen=0;   local
+    int keyTrack1  local
+    int keyTrack2  local
+    int sndChannel local
+
+    int disabled=0 local
+end
+
+code
+    startup:
+        SetMasterCog(GetSelfCog()); # this will make script to receive autosave/restore message via user0
+
+        if (!disabled)
+        {
+            SetThingAlpha(fadePlate, 1.0);
+            SetThingAlpha(title, 0.0);
+            SetThingAlpha(crono, 0.0);
+
+            # Setup camera behind fade plate
+            SetCameraLookInterp(2, 0);
+            SetCameraPosInterp(2, 0);
+            SetCameraFocus(2, camStartPos);
+            SetCameraSecondaryFocus(2, camStartLook);
+            SetCurrentCamera(2);
+            SetCameraFOV(60, 0, 0);
+
+            player = GetLocalPlayerThing();
+            SetActorFlags(player, 0x200000); # disable controls
+            SetThingFlags(player, 0x80000); # disabled
+        }
+        # For Debug
+        bSeen=disabled;
+    return;
+
+    user0:
+        if (bSeen) return; # Don't replay the intro cutscene unless level start or start savegame is loaded
+        bSeen = 1;
+
+        StartCutscene(2);
+
+        player = GetLocalPlayerThing();
+        SetActorFlags(player, 0x200000); # disable controls
+        SetThingFlags(player, 0x80000);  # disabled
+
+        SetCameraLookInterp(2, 0);
+        SetCameraPosInterp(2, 0);
+        SetCameraFocus(2, camStartPos);
+        SetCameraSecondaryFocus(2, camStartLook);
+        SetCurrentCamera(2);
+        SetCameraFOV(55, 0, 0);
+
+        # Prepare indy actor
+        AISetCutSceneMode(indyActor);
+        CopyPlayerHolsters(player, indyActor);
+        ClearThingFlags(indyActor, 0x80000);
+        keyTrack1 = PlayKey(indyActor, inHandsOnHips, 2, 0x14, 0); # lock animation on last frame
+
+        # Start cutscene
+        PlaySoundLocal(introMusic, 1.0, 0.0, 0x0, 0);
+        Sleep(1.0);
+
+        # Fade-in and show title
+        ThingFadeAnim(fadePlate, 1.0, 0.0, 1.8, 0);
+        Sleep(1.0);
+        ClearThingFlags(title, 0x80000);
+        ThingFadeAnim(title, 0.0, 1.0, 1.8, 0);
+        Sleep(3.0);
+
+        # Fadeout title
+        ThingFadeAnim(title, 1.0, 0.0, 0.5, 0);
+        Sleep(0.5);
+
+        # Show crono text
+        Sleep(0.5);
+        ClearThingFlags(crono, 0x80000);
+        ThingFadeAnim(crono, 0.0, 1.0, 1.0, 0);
+        Sleep(2);
+        MoveToFrame(crono, 0, 0.15); # move down with camera
+
+        # Move camera down to show indy
+        SetCameraInterpSpeed(2, 2.7);
+        SetCameraLookInterp(2, 1);
+        SetCameraPosInterp(2, 1);
+        Sleep(0.1);
+
+        SetCameraFocus(2, camIndyPos);
+        SetCameraSecondaryFocus(2, camIndyLook);
+        Sleep(1.5);
+
+        ThingFadeAnim(crono, 1.0, 0.0, 1.4, 0);
+        Sleep(1.8);
+
+        # Indy shows his moves
+        keyTrack2 = PlayKey(indyActor, inFigitHat, 4, 0x12, 0);
+        Sleep(0.5);
+        sndChannel = PlayVoice(indyActor, inTimeToGoToWork, 1.0, 0);
+        Sleep(0.5);
+        StopKey(indyActor, keyTrack2, 0.5);
+        StopKey(indyActor, keyTrack1, 0.7);
+        Sleep(0.5);
+        WaitForSound(sndChannel);
+
+        # Teleport player
+        TeleportThing(player, indyActor);
+        Sleep(0.3);
+        SetThingFlags(indyActor, 0x80000);
+        ClearThingFlags(player, 0x80000); # show player
+
+        # Reset camera to 3rd person
+        SetCameraFOV(80, 1, 1.2);
+        SetCameraLookInterp(2, 0);
+        SetCameraPosInterp(2, 0);
+
+        SetCameraPosition(1, GetThingPos(camIndyPos)); # move ext cam to cam 2 pos
+        Sleep(1.5);
+        SetCurrentCamera(1);
+
+        # Cleanup
+        DestroyThing(title);
+        DestroyThing(fadePlate);
+        DestroyThing(camStartPos);
+        DestroyThing(camStartLook);
+        DestroyThing(camIndyPos);
+        DestroyThing(camIndyLook);
+        DestroyThing(indyActor);
+
+        ClearActorFlags(player, 0x200000); # enable player controls
+        EndCutscene();
+
+        Sleep(1);
+        RestoreExtCam();
+    return;
+end

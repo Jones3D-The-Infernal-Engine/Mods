@@ -1,0 +1,19 @@
+# Probedroid foley description
+#
+# Mode                  WAV file                       Flags      minRadius  maxRadius  maxVolume
+# ==================    ===========================    =======    =========  =========  =========
+idle                    sed_pdalk01.wav                0x80       0.2        1.2        1.0
+idle                    sed_pdalk02.wav                0x80       0.2        1.2        1.0
+idle                    sed_pdalk03.wav                0x80       0.2        1.2        1.0
+create                  sed_pdloop.wav                 0x881      0.2        2.0        1.0
+alert                   sed_pdalk03.wav                0x80       0.2        1.2        1.0
+alert                   sed_pdalk01.wav                0x80       0.2        1.2        1.0
+hurtimpact              sed_pdhit02.wav                0x80       0.2        2.0        1.0
+hurtenergy              sed_pdhit01.wav                0x80       0.2        2.0        1.0
+hurtenergy              sed_pdhit02.wav                0x80       0.2        2.0        1.0
+hurtfire                sed_pdhit02.wav                0x80       0.2        2.0        1.0
+curious                 sed_pdalk01.wav                0x80       0.2        1.2        1.0
+victory                 sed_pdalk03.wav                0x80       0.2        1.2        1.0
+reserved8               sed_pdalk03.wav                0x80       0.2        1.2        1.0
+surprise                sed_pdalk03.wav                0x80       0.2        1.2        1.0
+fire1                   sed_pdgun01.wav                0x80       0.2        2.0        1.0

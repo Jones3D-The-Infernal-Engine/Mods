@@ -1,0 +1,75 @@
+#                                                                Min.       Max.
+#Mode                  WAV file                       Flags      Radius     Radius     Volume
+#==================    ===========================    =======    =======    =======    =======
+lwalkhard              fol_in_lwalkhard.wav           0x80       0.20       1.5        0.5
+rwalkhard              fol_in_rwalkhard.wav           0x80       0.20       1.5        0.5
+lrunhard               fol_in_lrunhard.wav            0x80       0.20       1.5        0.5
+rrunhard               fol_in_rrunhard.wav            0x80       0.20       1.5        0.5
+
+lwalkmetal             fol_in_lwalkmetal.wav          0x80       0.20       1.5        0.5
+rwalkmetal             fol_in_rwalkmetal.wav          0x80       0.20       1.5        0.5
+lrunmetal              fol_in_lrunmetal.wav           0x80       0.20       1.5        0.5
+rrunmetal              fol_in_rrunmetal.wav           0x80       0.20       1.5        0.5
+
+lwalkwater             fol_in_lwalkwater.wav          0x80       0.20       1.5        0.5
+rwalkwater             fol_in_rwalkwater.wav          0x80       0.20       1.5        0.5
+lrunwater              fol_in_lrunwater.wav           0x80       0.20       1.5        0.5
+rrunwater              fol_in_rrunwater.wav           0x80       0.20       1.5        0.5
+
+lwalkpuddle            fol_in_lwalkpuddle.wav         0x80       0.20       1.5        0.5
+rwalkpuddle            fol_in_rwalkpuddle.wav         0x80       0.20       1.5        0.5
+lrunpuddle             fol_in_lrunpuddle.wav          0x80       0.20       1.5        0.5
+rrunpuddle             fol_in_rrunpuddle.wav          0x80       0.20       1.5        0.5
+
+lwalkearth             fol_in_lwalkearth.wav          0x80       0.20       1.5        0.5
+rwalkearth             fol_in_rwalkearth.wav          0x80       0.20       1.5        0.5
+lrunearth              fol_in_lrunearth.wav           0x80       0.20       1.5        0.5
+rrunearth              fol_in_rrunearth.wav           0x80       0.20       1.5        0.5
+
+lwalksnow              fol_in_lwalksnow.wav           0x80       0.20       1.5        0.5
+rwalksnow              fol_in_rwalksnow.wav           0x80       0.20       1.5        0.5
+lrunsnow               fol_in_lrunsnow.wav            0x80       0.20       1.5        0.5
+rrunsnow               fol_in_rrunsnow.wav            0x80       0.20       1.5        0.5
+
+lwalkwood              fol_in_lwalkwood.wav           0x80       0.20       1.5        0.5
+rwalkwood              fol_in_rwalkwood.wav           0x80       0.20       1.5        0.5
+lrunwood               fol_in_lrunwood.wav            0x80       0.20       1.5        0.5
+rrunwood               fol_in_rrunwood.wav            0x80       0.20       1.5        0.5
+
+hithard                fol_in_hithard.wav             0x80       0.20       1.0        0.5
+hitmetal               fol_in_hitmetal.wav            0x80       0.20       1.0        0.5
+hitearth               fol_in_hitearth.wav            0x80       0.20       1.0        0.5
+
+corpsehit              fol_bodyfall_buckle.wav        0x80       0.20       1.5        1.0
+
+death1                 sedxax1005.wav                 0x880      0.20       2.5        1.0
+death2                 sedxax1011.wav                 0x880      0.20       2.5        1.0
+splattered             sedxax1006.wav                 0x880      0.20       2.5        1.0
+
+alert                  sedxax1001.wav                 0x880      0.20       2.5        1.0
+alert                  sedxax1002.wav                 0x880      0.20       2.5        1.0
+alert                  sedxax1003.wav                 0x880      0.20       2.5        1.0
+alert                  sedxax1008.wav                 0x880      0.20       2.5        1.0
+
+curious                sedxax1004.wav                 0x880      0.20       2.5        1.0
+curious                sedxax1009.wav                 0x880      0.20       2.5        1.0
+
+gloat                  sedxax1007.wav                 0x880      0.20       2.5        1.0
+
+hurtenergy             sedxax1012.wav                 0x880      0.20       2.5        1.0
+hurtenergy             sedxax1013.wav                 0x880      0.20       2.5        1.0
+hurtenergy             sedxax1014.wav                 0x880      0.20       2.5        1.0
+hurtimpact             sedxax1012.wav                 0x880      0.20       2.5        1.0
+hurtimpact             sedxax1013.wav                 0x880      0.20       2.5        1.0
+hurtimpact             sedxax1014.wav                 0x880      0.20       2.5        1.0
+hurtfire               sedxax1012.wav                 0x880      0.20       2.5        1.0
+
+victory                sedxax1007.wav                 0x880      0.20       2.5        1.0
+victory                sedxax1010.wav                 0x880      0.20       2.5        1.0
+
+reserved1              fol_bodyfall_flung.wav         0x880      0.20       1.5        1.0
+reserved2              fol_bodyfall_blown.wav         0x880      0.20       1.5        1.0
+reserved3              fol_bodyfall_fall.wav          0x880      0.20       1.5        1.0
+
+reserved8              inxh4019.wav                   0x880      0.20       2.5        1.0
+

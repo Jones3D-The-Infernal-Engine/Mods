@@ -1,0 +1,275 @@
+# Cog script for blasting wall with IMP1
+# Script will auto set bomb position and camera position.
+# Script adds option for wall to have crack pattern set as thing which is destroyed on wall smash.
+#
+# [Crt Vavros]
+# ===================================================================
+
+symbols
+    message startup
+    message activated
+    message damaged
+    message pulse
+
+    # editor vars
+    surface crackedwall mask=0x408 # only player and weapon send messages to this script
+    thing crack         nolink
+
+    thing bombpos nolink local
+    thing dust    nolink local
+    thing player  nolink local
+
+    template tmplDust=dustcloud          local
+    template tmplDebris=stnshrapas_nc_ns local
+    template tmplBomb=ghost              local
+
+    material matDust=gen_a4sfx_dustcloud.mat local
+
+    sound sfxExplosion=imp1_wall_break.wav
+    sound sfxCharge=imp1_chargeup.wav local
+    sound music=mus_gen_eerie1.wav
+
+    # Cue lines
+    sound inCrumble=inxj025.wav local # This wall looks ready to crumble.
+    sound inVibrate=Inxj026.wav local # A little vibration...
+
+    # Wrong item say lines
+    sound inWILine0=Inxj089.wav local # That didn't work.
+    sound inWILine1=Inxj090.wav local # ...something wrong.
+    sound inWILine2=Inxj092.wav local # Hmm...didn't quite work.
+    sound inWILine3=Inxj060.wav local # I don't think...right answer.
+    sound inWILine4=Inxj087.wav local # Whoops.
+    sound inWILine5=Inxj088.wav local # Nope.
+    sound inWILine6=Inxj091.wav local # Of course that didn't work.
+
+    int bPlayMusic=0 # if 1 music is played when wall is smashed
+    float smokeTime=5.0
+
+    int wiLineIdx    local # index in sound array
+    int wiNewLine=50 local
+    int wiOldLine=50 local
+    int wiOffset     local
+
+    # Local vars
+    int fragment=0   local
+    int i=0          local
+    int vibe         local
+    int hintNum=0    local
+    vector angOffset local
+    vector posOffset local
+
+    # Subroutines
+    flex BlowUpWall=0       local
+    flex SayWrongItemHint=0 local
+end
+
+code
+    startup:
+        Sleep(0.3); # Let the engine initialize....
+
+        player = GetLocalPlayerThing();
+
+        # Show cracked wall
+        ClearAdjoinFlags(crackedwall, 0x3);  # 0x3 - SITH_ADJOIN_VISIBLE |SITH_ADJOIN_MOVE
+        ClearAdjoinFlags(GetSurfaceAdjoin(crackedwall), 3);
+        SetFaceGeoMode(crackedwall, 4); # 4 - geometry_texture
+        SetFaceGeoMode(GetSurfaceAdjoin(crackedwall), 4);
+
+        bombpos = CreateThingAtPos(tmplBomb, GetSurfaceSector(crackedwall), GetSurfaceCenter(crackedwall), VectorSet(0, 0, 0));
+        #CaptureThing(bombpos);
+    return;
+
+    damaged:
+        if (GetCurWeapon(player) != 14) return; # If player no holding IMP1
+        if (GetParam(1) != 0x1000) return;      # If damage wasn't caused by MP1
+        Call BlowUpWall;
+    return;
+
+    activated:
+        if (GetCurWeapon(player) == 14) return; # If player is holding IMP1
+
+        # If crackedwall was activated
+        if (GetSenderRef() == crackedwall)
+        {
+            if (MakeMeStop() == -1) return;
+            DeselectWeaponWait(player);
+            StartCutscene(0);
+
+            # Set ext cam offset
+            if (Rand() < 0.5)
+            {
+                SetExtCamOffset('0.15 -0.04 0.05');
+            }
+            else
+            {
+                SetExtCamOffset('-0.15 -0.04 0.05');
+            }
+            SetExtCamLookOffset('0.0 0.02 0.0');
+
+            PlayMode(player, 60, 0); # mode mid activate
+
+            # player is using a wrong item
+            if (GetCurItem(player) >= 1)
+            {
+                sleep(0.5);
+                call SayWrongItemHint;
+            }
+            else # player isn't using anything
+            {
+                sleep(0.5);
+                if (hintNum == 0)
+                {
+                    PlayVoice(player, inVibrate, 1.0, 1);
+                }
+                else
+                {
+                    PlayVoice(player, inCrumble, 1.0, 1);
+                }
+                hintNum = 1 - hintNum;
+            }
+
+            RestoreExtCam();
+            ClearActorFlags(player, 0x200000); # enable player controls
+            EndCutscene();
+            return;
+        }
+    return;
+
+    BlowUpWall:
+        if (MakeMeStop() == -1) return;
+        StartCutscene(0);
+
+        # Set ext cam offset
+        if (Rand() < 0.5)
+        {
+            SetExtCamOffset('0.15 -0.04 0.07');
+        }
+        else
+        {
+            SetExtCamOffset('-0.15 -0.04 0.07');
+        }
+        SetExtCamLookOffset('0.0 0.02 0.0');
+
+        # Start quake
+        Sleep(0.3);
+        SetPulse(0.01);
+
+        # Play explosion sound fx
+        PlaySoundLocal(sfxCharge, 1.0, 0.0, 0x0, 0);
+        Sleep(1.5);
+        PlaySoundLocal(sfxExplosion, 1, 0, 0x0, 0);
+
+        # Create debris & dust
+        MaterialAnim(matDust, 8.0, 0);
+        for (i = 0; i < 40; i = i + 1)
+        {
+            fragment = CreateThing(tmplDebris, bombpos);
+            SetThingVel(fragment, VectorScale(VectorAdd(RandVec(), '-0.5 -0.1 0.0'), 2));
+            SetThingRotVel(fragment, VectorScale(VectorAdd(RandVec(), '0.0 0.0 0.0'), 900.0));
+        }
+
+        for (i = 0; i < 10; i = i + 1)
+        {
+            dust = CreateThing(tmplDust, bombpos);
+            SetLifeLeft(dust, 1.0);
+            AnimateSpriteSize(dust, '0.02 0.02 1.0', '0.4 0.4 0.5', 1.0);
+            Sleep(0.1);
+        }
+
+        if (crack > -1)
+        {
+            DestroyThing(crack);
+        }
+
+        # Make adjoin passthrough and render the other side
+        SetAdjoinFlags(crackedwall, 3); # # SITH_ADJOIN_VISIBLE |SITH_ADJOIN_MOVE
+        SetAdjoinFlags(GetSurfaceAdjoin(crackedwall), 3);
+        SetFaceGeoMode(crackedwall, 0); # geometry_none
+        SetFaceGeoMode(GetSurfaceAdjoin(crackedwall), 0);
+
+        if (bPlayMusic) {
+            PlaySoundLocal(music, 1.0, 0.0, 0x0, 0);
+        }
+
+        # Create dust fx
+        dust = CreateThing(tmplDust, bombpos);
+        AnimateSpriteSize(dust, '0.2 0.2 1.0', '0.6 0.6 0.8', smokeTime);
+        SetLifeLeft(dust, smokeTime);
+        sleep(1.0);
+
+        # Stop quake & clean-up
+        SetPulse(0.0);
+        DestroyThing(bombpos);
+
+        RestoreExtCam();
+        ClearActorFlags(player, 0x200000); # enable player controls
+        EndCutscene();
+    return;
+
+    pulse:
+        # Code for trembling the view camera
+        vibe = RandBetween(1, 4);
+        if (vibe == 1)
+        {
+            posOffset = '-0.005 0.00 -0.001';
+            angOffset = '0.00 -0.001 0.001';
+        }
+        else if (vibe == 2)
+        {
+            posOffset = '0.005 -0.002 0.001';
+            angOffset = '0.001 0.00 -0.001';
+        }
+        else if (vibe == 3)
+        {
+            posOffset = '0.002 0.002 -0.002';
+            angOffset = '-0.001 0.002 -0.002';
+        }
+        else if (vibe == 4)
+        {
+            posOffset = '-0.001 0.00 0.002';
+            angOffset = '0.00 0.00 0.001';
+        }
+
+        vibe = RandBetween(1, 3);
+        if (vibe == 1)
+        {
+            SetPulse(0.05);
+        }
+        else if (vibe == 2)
+        {
+            SetPulse(0.1);
+        }
+        else if (vibe == 3)
+        {
+            SetPulse(0.15);
+        }
+
+        SetPOVShake(posOffSet, angOffSet, 200.0, 200.0);
+    return;
+
+    SayWrongItemHint:
+        while (wiNewLine == wiOldLine)
+        {
+            wiNewLine = RandBetween(0, 19);
+            if (wiNewLine < 15)
+            {
+                wiNewLine = RandBetween(0, 3); # ~1/5 chance for lines 0 thru 3
+            }
+            if (wiNewLine == 19)
+            {
+                wiNewLine = 6; # 1/20 chance for line 6
+            }
+            else if (wiNewLine > 16)
+            {
+                wiNewLine = 5; # 1/10 chance for line 5
+            }
+            else if (wiNewLine > 14)
+            {
+                wiNewLine = 4; # 1/10 chance for line 4
+            }
+        }
+        wiOldLine = wiNewLine;
+        wiLineIdx = wiOffset + wiNewLine;
+        PlayVoice(player, inWILine0[wiLineIdx], 1, 1);
+    return;
+end

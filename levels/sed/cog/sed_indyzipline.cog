@@ -1,0 +1,259 @@
+# Player zip line script
+#
+# [Crt Vavros]
+# ==============================================================================
+
+symbols
+    message startup
+    message damaged
+    message arrived
+    message entered
+    message exited
+    message callback
+
+    thing player     local
+    thing whiptarget mask=0x400 # only player source will send damage message
+    thing inactor    nolink
+    thing zipcarrier mask=0x1   # only system sends arrived message
+
+    # camera and look things
+    thing cscam1      nolink
+    thing cscam1Look  nolink
+    thing cscam2      nolink
+    thing cscam2Look  nolink
+
+    # sectors
+    sector cam2SwitchSec mask=0x100 # only ghost thing will trigger (zipcarrier)
+    sector secZipStart   nolink local
+
+    # surfaces
+    surface landSurf mask=0x400 # surface to land on after jumping off zip line (only player will trigger)
+
+    # anims
+    keyframe inzipmount=sed_in_zip_mount.key local
+    keyframe inzipmove=sed_in_zip_move.key   local
+    keyframe inland=in_jump_land_hard.key    local
+
+    # sounds
+    sound sndWhipFire=gen_whip_unravel.wav  local
+    sound sndCSMusic=mus_gen_indyrelief.wav local
+    sound sndZipMove=sed_zipline_move.wav   local
+
+    # vars
+    int bCutscene=1
+    float startSpeed=1.8
+    float maxSpeed=5.68
+
+    # local variables
+    int bZipLining local
+    int track      local
+    int channel    local
+
+    float jumpHeight=0.13112 local # in_jump_up.key jump height
+    float jumpWait           local
+    float speed              local
+
+    vector zipStartPos  local
+    vector extCamOffset local
+    vector homeLVec     local
+    vector homeEyePos   local
+
+    # subroutines
+    float DoZipline=0      local
+    float FinishZipline=0  local
+end
+
+code
+    startup:
+        bZipLining   = 0;
+        player       = GetLocalPlayerThing();
+        extCamOffset = '0.0 -0.3 0.09';
+
+        secZipStart = GetThingSector(zipcarrier);
+        homeLVec    = GetThingLVec(inactor);
+        homeEyePos  = VectorAdd(AIGetHomePos(inactor), GetThingEyeOffset(inactor));
+
+        zipStartPos = VectorSub(GetThingPos(zipcarrier), GetThingInsertOffset(inactor));
+        zipStartPos = VectorAdd(zipStartPos, '0 0 -0.00297657');
+
+        # calculate jump wait time, which is based on in_jump_up.key animation time, jump height and distance to zip start position
+        jumpWait = VectorZ(VectorSub(zipStartPos, AIGetHomePos(inactor))) / jumpHeight;
+        jumpWait = 0.37 + (0.37 * jumpWait); # 0.37 - jump start anim sec, 0.37 - jump anim duration sec
+
+        # Make sure target has whip climb & swing set,
+        # this will disable whip system and only send damaged message when player fires whip
+        SetThingFlags(whiptarget, 0x80000008);
+    return;
+
+    damaged:
+        if (bZipLining || GetSenderRef() != whiptarget)
+            return;
+        Call DoZipline;
+    return;
+
+    arrived:
+        if (GetSenderRef() != zipcarrier)
+            return;
+
+        #DebugPrint("Zip line arrived");
+        Call FinishZipline;
+    return;
+
+    entered:
+        if (!bZipLining)
+            return;
+
+        if (GetSenderRef() == landSurf && GetSourceRef() == player)
+        {
+            # landed on the surface, finish cutscene...
+            PlayKey(player, inland, 5, 0x38, 1);
+            ClearActorFlags(player, 0x200000); # enable controls
+            SetCameraFocus(1, player);
+            SetCurrentCamera(1);
+            RestoreExtCam(); # call it after SetCurrentCamera or it won't be reset
+            ResetCameraFOV(0, 0);
+
+            bZipLining = 0;
+            bCutscene = 0;
+            EndCutscene();
+            return;
+        }
+
+        if (GetSenderRef() != cam2SwitchSec || GetSourceRef() != zipcarrier)
+            return;
+
+        if (bCutscene)
+        {
+            # Switch camera position
+            Sleep(0.3);
+            SetCameraFocus(2, cscam2);
+            SetCameraSecondaryFocus(2, cscam2Look);
+            SetCameraFOV(75, 0, 0);
+        }
+
+    return;
+
+    exited:
+        if (!bZipLining)
+            return;
+
+        if (bCutscene == 0 || GetSenderRef() != cam2SwitchSec || GetSourceRef() != zipcarrier)
+            return;
+
+        SetCameraFocus(1, inactor);
+        SetCurrentCamera(1);
+        SetExtCamOffset(extCamOffset);
+    return;
+
+    DoZipline:
+        if (bZipLining)
+            return;
+
+        #DebugPrint("Starting zip lining ...");
+        bZipLining = 1;
+
+        StartCutscene(0);
+
+        # Prepare scene
+        MakeMeStop(); # disables controls
+        CopyPlayerHolsters(player, inactor);
+        CopyOrientAndPos(player, inactor);
+        SetArmedMode(inactor, 1);
+        PlayMode(inactor, 62, 0);
+        SetThingFlags(player, 0x80000);    # hide player
+        ClearThingFlags(inactor, 0x80000); # show indy actor
+
+        JumpToFrame(zipcarrier, 0, secZipStart); # return to start frame
+
+        if (bCutscene)
+        {
+            SetCameraFocus(2, cscam1);
+            SetCameraSecondaryFocus(2, cscam1Look);
+            SetCurrentCamera(2);
+            SetCameraFOV(75, 0, 0);
+        }
+        else {
+            SetCameraFocus(1, inactor); # Ext camera
+        }
+
+        # Move indy into position
+        AISetCutsceneMode(inactor);
+        AISetMoveSpeed(inactor, 0.7);
+
+        AISetLookPos(inactor, homeEyePos);
+        AISetMovePos(inactor, AIGetHomePos(inactor), 1);
+        AISetLookPos(inactor, VectorAdd(homeEyePos, homeLVec));
+        AIWaitForStop(inactor);
+
+        PlaySoundThing(sndWhipFire, inactor, 0.5, 0.2, 0.5, 0x80);
+        CaptureThing(inactor);
+
+        # Attach indy to zip carrier (see callback)
+        PlayKeyEX(inactor, inzipmount, 4, 10, 0x1A, 1);
+
+        if (bCutscene) {
+            PlaySoundLocal(sndCSMusic, 1, 0, 0, 0);
+        }
+        else {
+            SetExtCamOffset(extCamOffset);
+        }
+
+        # Accelerate indy down the zip line to max speed
+        SetActorFlags(inactor, 0x40000); # AF_IMMOBILE
+        track = PlayKey(inactor, inzipmove, 4, 0x18, 0);
+        channel = PlaySoundThing(sndZipMove, zipcarrier, 0.01, 5, 8, 0x081);
+        ChangeSoundPitch(channel, 1.30, ((maxSpeed / 1.10) * 0.3) * 2);
+
+        speed = startSpeed;
+        while (speed < maxSpeed)
+        {
+            speed = speed * 1.10;
+            if (speed > maxSpeed)
+                speed = maxSpeed;
+            MoveToFrame(zipcarrier, 1, speed);
+            ChangeSoundVol(channel, 0.15 * (speed/maxSpeed), 0.01); # There seems to be a bug in ChangeSoundVol, manual fade volume should work here
+            #PrintFlex(speed);
+            Sleep(0.3);
+        }
+    return;
+
+    FinishZipline:
+        if (!bZipLining)
+            return;
+
+        TeleportThing(player, inactor);
+        ClearThingFlags(player, 0x80000);  # show player
+
+        SetThingFlags(inactor, 0x80000); # hide indy actor
+        ClearActorFlags(inactor, 0x40000); # AF_IMMOBILE
+        DetachThing(inactor);
+        StopKey(inactor, track, 0.0);
+
+        # Give player some thrust push to match speed of zipcarrier
+        # Note, SetThingThrust doesn't work when player is falling
+        AddThingVel(player, VectorScale(GetThingLVec(player), 0.1 * speed));
+
+        ChangeSoundPitch(channel, 1.80, 0.2);
+        Sleep(0.2);
+        StopSoundThing(sndZipMove, zipcarrier);
+
+        # Note, cutscene ends and controls are enabled
+        # after player lands on surface, see entered message
+    return;
+
+    callback:
+        if (GetSenderRef() != inactor || GetParam(1) != 27 ) # 27 = move
+            return;
+
+        ReleaseThing(inactor);
+
+         # Make indy jump
+        AIJump(inactor, zipStartPos, 0);
+        Sleep(jumpWait); # wait for indy to jump up to the position of zip carrier
+        StopMode(inactor, 16, 0.0); # stop jump up mode
+
+        # Attach indy to zip carrier and start moving down the zip line
+        SetThingPos(inactor, zipStartPos);
+        AttachThingToThingEx(inactor, zipcarrier, 0x8); # 0x8 = ATTACH_NOMOVE
+    return;
+end

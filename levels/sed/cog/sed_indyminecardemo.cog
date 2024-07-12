@@ -1,0 +1,36 @@
+symbols
+    message entered
+    sector trigger mask=0x400 # only player triggers
+
+    thing minecar  nolink
+    thing startPos nolink
+    thing camPos   nolink
+    thing camLook  nolink
+end
+
+code
+    entered:
+        # Move car to start pos and kick it down the ramp
+        StartCutscene(2);
+        MakeMeStop();
+        CopyOrientAndPos(startPos, minecar);
+        Sleep(0.1); # must wait or there will be problem in physics system
+        SetThingThrust(minecar, VectorSet(0, 3.2, 0));
+
+        # Setup camera
+        SetCameraPosInterp(2, 0);
+        SetCameraLookInterp(2, 0);
+        SetCameraFocus(2, camPos);
+        SetCameraSecondaryFocus(2, camLook);
+        MoveToFrame(camPos, 0, 1.5);
+        SetCurrentCamera(2);
+        SetCameraFOV(55, 0, 0);
+
+        # Wait
+        Sleep(5);
+        SetCurrentCamera(1);
+        ClearActorFlags(GetLocalPlayerThing(), 0x200000); # enable controls
+        EndCutscene();
+
+    return;
+end

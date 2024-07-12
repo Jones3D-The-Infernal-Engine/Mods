@@ -1,0 +1,134 @@
+# Script for player model to say hint when object or surface is activated
+# user0: disables this COG
+# [Crt Vavros]
+# ==============================================================================
+
+symbols
+    message startup
+    message user0
+    message activated
+
+    thing player local
+    thing hintObject  linkID=1 mask=0x400
+    thing hintObject1 linkID=1 mask=0x400
+    thing hintObject1 linkID=1 mask=0x400
+    thing hintObject1 linkID=1 mask=0x400
+
+    surface hintSurf  linkID=2 mask=0x400
+    surface hintSurf1 linkID=2 mask=0x400
+    surface hintSurf2 linkID=2 mask=0x400
+    surface hintSurf3 linkID=2 mask=0x400
+    sector hintSector
+
+    sound hintLine0=-1
+    sound hintLine1=-1
+    sound hintLine2=-1
+
+    int bSayOnce=0
+
+    float offsetHintX=0.0
+    float offsetHintY=0.0
+    float offsetHintZ=0.0
+
+    float camOffsetX=0.1
+    float camOffsetY=0.0
+    float camOffsetZ=0.085
+
+    int newComment=0   local
+    int oldComment     local
+    int playing=0      local
+    int hasPlayed=0    local
+    int numHintLines=0 local
+
+    vector hintPos    local
+    vector offsetHint local
+    vector camOffset  local
+    vector pyr        local
+end
+
+code
+    startup:
+        player = GetLocalPlayerThing();
+        offsetHint = VectorSet(offsetHintX, offsetHintY, offsetHintZ);
+        camOffset = VectorSet(camOffsetX, camOffsetY, camOffsetZ);
+
+        if (hintLine0 != -1)
+        {
+            numHintLines = numHintLines + 1;
+        }
+        if (hintLine1 != -1)
+        {
+            numHintLines = numHintLines + 1;
+        }
+        if (hintLine2 != -1)
+        {
+            numHintLines = numHintLines + 1;
+        }
+
+        if (numHintLines == 0)
+        {
+            Print("No hint lines defined for sed_sayhint.cog. Disabling script...\n");
+            playing = 1; # prevent playing animation
+        }
+    return;
+
+    user0:
+        bSayOnce  = 1;
+        hasPlayed = 1;
+    return;
+
+    activated:
+        if ( (playing == 0) && (bSayOnce == 0 || hasPlayed == 0) && (GetThingSector(player) == hintSector) )
+        {
+            playing = 1;
+
+            while ( (newComment == oldComment) && (numHintLines > 1) )
+            {
+                newComment = RandBetween(0, numHintLines - 1);
+            }
+
+            oldComment = newComment;
+
+            MakeMeStop();
+            StartCutscene(0);
+
+            # Orient player to hint object
+            if (GetSenderID() ==  1) # thing
+            {
+                # Print("Hint object activated");
+                hintPos = GetThingPos(GetSenderRef());
+            }
+            else # surface
+            {
+                # Print("Hint surface activated");
+                hintPos = GetSurfaceCenter(GetSenderRef());
+            }
+
+            pyr     = GetThingLVecPYR(player);
+            hintPos = VectorAdd(hintPos, offsetHint);
+            SetThingLook(player, VectorSub(hintPos, GetThingPos(player)));
+
+            # fix player rotation for pitch and yaw to 0, and add global yaw offset
+            SetThingLVecPYR(player, VectorSet(VectorX(pyr), VectorY(GetThingLVecPYR(player)), VectorZ(pyr)));
+
+            # offset camera
+            SetExtCamOffset(camOffset);
+
+            # put away any weapon
+            DeselectWeaponWait(player);
+
+            PlayMode(player, 60, 0); # activate right hand
+            Sleep(0.3);
+
+            PlayVoice(player, hintLine0[newComment], 1.0, 1);
+
+            RestoreExtCam();
+            ClearActorFlags(player, 0x200000);
+            EndCutscene();
+
+            playing = 0;
+            hasPlayed = 1;
+        }
+    return;
+end
+

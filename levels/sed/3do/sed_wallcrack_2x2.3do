@@ -1,0 +1,93 @@
+# 3DO model 'sed_wallcrack_2x2.3do' created with Blender Sith addon v1.0.0-rc4 by Crt Vavros
+
+###############
+SECTION: HEADER
+
+3DO 2.3
+
+###############
+SECTION: MODELRESOURCE
+
+# Materials list
+MATERIALS 1
+
+         0:sed_wallcrack.mat
+
+
+###############
+SECTION: GEOMETRYDEF
+
+# Object radius
+RADIUS    0.141478
+
+# Insertion offset
+INSERT OFFSET    0.000000   0.000000   0.000000
+
+# Number of Geometry Sets
+GEOSETS 1
+
+# Geometry Set definition
+GEOSET 0
+
+# Number of Meshes
+MESHES 1
+
+
+# Mesh definition
+MESH 0
+
+NAME wallcrack_2m
+
+RADIUS    0.141692
+
+GEOMETRYMODE 4
+LIGHTINGMODE 3
+TEXTUREMODE 3
+
+
+VERTICES 4
+
+# num:     x:         y:         z:         i:
+    0:  -0.100000  -0.099617   0.000000  0.000000 0.000000 0.000000 1.000000
+    1:   0.100000  -0.099617   0.000000  0.000000 0.000000 0.000000 1.000000
+    2:   0.100000   0.100383   0.000000  0.000000 0.000000 0.000000 1.000000
+    3:  -0.100000   0.100383   0.000000  0.000000 0.000000 0.000000 1.000000
+
+
+TEXTURE VERTICES 4
+
+    0:   0.000000  -0.000398
+    1:   1.000000  -0.000398
+    2:   1.000000  -0.999602
+    3:   0.000000  -0.999602
+
+
+VERTEX NORMALS
+
+# num:     x:         y:         z:
+    0:   0.000000   0.000000   1.000000
+    1:   0.000000   0.000000   1.000000
+    2:   0.000000   0.000000   1.000000
+    3:   0.000000   0.000000   1.000000
+
+
+FACES 1
+
+#  num:  material:   type:  geo:  light:   tex:  extralight:  verts:
+     0:         0  0x0000     4       3      3 (0.000000/0.000000/0.000000/1.000000)       4    0,  0   1,  1   2,  2   3,  3 
+
+
+FACE NORMALS
+
+# num:     x:         y:         z:
+    0:   0.000000   0.000000   1.000000
+
+
+###############
+SECTION: HIERARCHYDEF
+
+# Hierarchy node list
+HIERARCHY NODES 1
+
+#  num:   flags:   type:    mesh:  parent:  child:  sibling:  numChildren:        x:         y:         z:     pitch:       yaw:      roll:    pivotx:    pivoty:    pivotz:  hnodename:
+     0:  0x0000 0x00001        0       -1      -1        -1             0   0.000000   0.000000   0.000000   0.000000  -0.000000  -0.000000   0.000000   0.000000   0.000000  wallcrack_2m

@@ -1,0 +1,152 @@
+# Generic script for cave ambient sound.
+# Ambient sound is started when player crosses start adjoin, played randomly in intervals,
+# and stopped when player enters water or crosses stop adjoin.
+#
+# user0: enables/disables this COG
+# user1: starts ambient music if COG is enabled
+#
+# [Crt Vavros]
+#======================================================================================
+
+symbols
+    message timer
+    message crossed
+    message user0
+    message user1
+
+    thing player local
+
+    int bActive=0
+    flex minInterval=4
+    flex rangeInterval=8
+    flex volume=0.35
+
+    sound amb1=sed_cavesus1.wav
+    sound amb2=sed_cavesus2.wav
+    sound amb3=sed_cavesus3.wav
+
+    surface startSurf0  linkid=2
+    surface startSurf1  linkid=2
+    surface startSurf2  linkid=2
+    surface startSurf3  linkid=2
+    surface startSurf4  linkid=2
+    surface startSurf5  linkid=2
+    surface startSurf6  linkid=2
+    surface startSurf7  linkid=2
+    surface startSurf8  linkid=2
+    surface startSurf9  linkid=2
+    surface startSurf10 linkid=2
+
+    surface stopSurf0  linkid=3
+    surface stopSurf1  linkid=3
+    surface stopSurf2  linkid=3
+    surface stopSurf3  linkid=3
+    surface stopSurf4  linkid=3
+    surface stopSurf5  linkid=3
+    surface stopSurf6  linkid=3
+    surface stopSurf7  linkid=3
+    surface stopSurf8  linkid=3
+    surface stopSurf9  linkid=3
+    surface stopSurf10 linkid=3
+
+    int bSwimming=0   local
+    int bUnderwater=0 local
+    int sndIdx        local
+    int curSound      local
+    int timerID=2     local
+    int bPlaying=0    local
+
+    # Subroutine
+    flex StartTimer=0 local
+    flex StopMusic=0  local
+end
+
+code
+    user0:
+        if (GetParam(0) == 0 && bActive) {
+            Call StopMusic;
+        }
+        bActive = GetParam(0);
+    return;
+
+    user1:
+        if (!bActive) return;
+        if (!GetParam(0)) # stop music
+        {
+            Call StopMusic;
+            return;
+        }
+
+        # else fallthrough to timer handler to play ambient music
+
+    timer:
+        player      = GetLocalPlayerThing();
+        bSwimming   = BitTest(GetThingFlags(player), 0x2000000);
+        bUnderwater = bSwimming && !BitTest(GetPhysicsFlags(player), 0x100000);
+        if (bPlaying)
+        {
+            if (bUnderwater)
+            {
+                #DebugPrint("timer: Stopped playing ambient music");
+                StopSound(curSound, 2.0);
+                bPlaying = 0;
+            }
+            Call StartTimer;
+            return;
+        }
+
+        if (!bUnderwater)
+        {
+            #DebugPrint("timer: Starting to play ambient music");
+            bPlaying = 1;
+            sndIdx   = RandBetween(0, 2);
+            curSound = PlaySoundLocal(amb1[sndIdx], volume, ((Rand() * 2) -1.0), 0x0, 0);
+        }
+
+        Call StartTimer;
+
+        if (bPlaying)
+        {
+            WaitForSound(curSound);
+            bPlaying = 0;
+            #DebugPrint("timer: Finished playing ambient music");
+        }
+    return;
+
+    crossed:
+        if (!bActive) return;
+
+        if (GetSenderID() == 2) # start
+        {
+            #DebugPrint("crossed: Starting timer");
+            player      = GetLocalPlayerThing();
+            bSwimming   = BitTest(GetThingFlags(player), 0x2000000);
+            bUnderwater = bSwimming && !BitTest(GetPhysicsFlags(player), 0x100000);
+            if (bUnderwater && bPlaying)
+            {
+                #DebugPrint("crossed: Stopping music due player being underwater");
+                StopSound(curSound, 0.5);
+                bPlaying = 0;
+            }
+
+            Call StartTimer;
+        }
+
+        if (GetSenderID() == 3) { # stop
+           Call StopMusic;
+        }
+    return;
+
+    StartTimer:
+        SetTimerEx(minInterval + (Rand() * rangeInterval), timerID, 0, 0);
+    return;
+
+    StopMusic:
+        KillTimerEx(timerID);
+        if (bPlaying)
+        {
+            StopSound(curSound, 2.0);
+            bPlaying = 0;
+        }
+    return;
+end

@@ -1,0 +1,67 @@
+# This COG causes actor to delay attack until player enters trigger surface, sector or crosses trigger adjoin
+#
+# [Crt Vavros]
+# ========================================================================================
+
+symbols
+    message startup
+    message entered
+    message killed
+    message crossed
+
+    thing actor
+    thing player local
+
+    sector triggerSec1 linkID=1 mask=0x400 # player only
+    sector triggerSec2 linkID=1 mask=0x400 # player only
+    sector triggerSec3 linkID=1 mask=0x400 # player only
+    sector triggerSec4 linkID=1 mask=0x400 # player only
+
+    surface triggerSurf1  linkID=1 mask=0x400 # player only
+    surface triggerSurf2  linkID=1 mask=0x400 # player only
+    surface triggerSurf3  linkID=1 mask=0x400 # player only
+    surface triggerSurf4  linkID=1 mask=0x400 # player only
+    surface triggerSurf5  linkID=1 mask=0x400 # player only
+    surface triggerSurf6  linkID=1 mask=0x400 # player only
+    surface triggerSurf7  linkID=1 mask=0x400 # player only
+    surface triggerSurf8  linkID=1 mask=0x400 # player only
+    surface triggerSurf9  linkID=1 mask=0x400 # player only
+    surface triggerSurf10 linkID=1 mask=0x400 # player only
+
+    int bTriggered=0 local
+    int bDead=0      local
+end
+
+code
+    startup:
+        Sleep(0.01); # let engine initializes a bit
+        player = GetLocalPlayerThing();
+
+        #if (GetThingType(actor) != 2) # TODO: output some error here
+        AISetCutsceneMode(actor);
+    return;
+
+    crossed: # fall trough
+    entered:
+        if (GetSenderID() != 1) return;
+        if (GetSourceRef() != player) return;
+        if (bTriggered == 1) return;
+        if (bDead == 1) return;
+
+        bTriggered = 1;
+        AIClearCutSceneMode(actor);
+        AISetFireTarget(actor, player);
+    return;
+
+    killed:
+        if (GetSenderRef() == actor) {
+            bDead = 1;
+        }
+    return;
+end
+
+
+
+
+
+

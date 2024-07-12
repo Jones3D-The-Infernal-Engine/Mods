@@ -1,0 +1,360 @@
+# SED aetherium sky portal script
+#
+# user0: Starts aetherium sky cutscene
+#
+# [Crt Vavros]
+#======================================================================================
+
+symbols
+    message startup
+    message user0
+    message entered
+    message crossed
+    message pulse
+    message touched
+    message sighted
+    message timer
+
+    sector beamSec           mask=0x400 # player only
+    surface portAdjoin       mask=0x400
+    surface closedPortAdjoin mask=0x400 linkID=2
+    surface beamSurface1     mask=0x400 linkID=3
+    surface beamSurface2     mask=0x400 linkID=3
+    surface beamSurface3     mask=0x400 linkID=3
+    surface beamSurface4     mask=0x400 linkID=3
+    surface beamSurface5     mask=0x400 linkID=3
+    surface beamSurface6     mask=0x400 linkID=3
+    surface beamSurface7     mask=0x400 linkID=3
+    surface beamSurface8     mask=0x400 linkID=3
+    surface beamSurface9     mask=0x400 linkID=3
+    surface beamSurface10    mask=0x400 linkID=3
+    surface beamSurface11    mask=0x400 linkID=3
+    surface beamSurface12    mask=0x400 linkID=3
+    surface beamSurface13    mask=0x400 linkID=3
+    surface beamSurface14    mask=0x400 linkID=3
+    surface beamSurface15    mask=0x400 linkID=3
+    surface beamSurface16    mask=0x400 linkID=3
+
+    # Things
+    thing membrane  nolink
+    thing appearPos nolink
+    thing ringSpot  local
+    thing ring      local
+    thing orb       local
+
+    thing fadePlate nolink
+    thing camPos    nolink
+    thing camLook   nolink
+
+    thing droid1    linkID=1
+    thing droid2    linkID=1
+
+    thing player    local
+
+    template ringTpl=+ripples_vert local
+    template orbTpl=lensflarew     local
+    template tplGhost=ghost        local
+
+    # Cogs
+    cog lightningfx nolink
+
+    # Indy lines
+    sound inFallScream=inxj015.wav             local
+    sound inFallShock=inxj007.wav              local
+    sound inAltReality=sed08j01a.wav           local
+    sound inLuckilyNotDemolished=sed08j01b.wav local
+    sound inStrangeCreatures=sed08j01c.wav     local
+
+    # Ambient sounds
+    sound introMusic=sed_musaetintro.wav local
+    sound ambMusic=sed_aetsus.wav        local
+
+    # Sound fx
+    sound portSfx=aet_ring_spin.wav                 local
+    sound portTouchSfx=aet_moph_fireball_impact.wav local
+    sound portCrossSfx=aet_por_open.wav             local
+
+    sound beamSfx=aet_sector.wav                    local
+    sound beamTouchSfx=nub_aethlight_on_c.wav       local
+
+    sound aetSplashSfx=aet_gemdoor_stop.wav         local
+    sound fadeMagicSfx=nub_charged_pad_c.wav        local
+
+    # Local vars
+    int bBeamEntered=0 local
+    int bBeamTouched=0 local
+    int bPortTouched=0 local
+    int bSpeaking=0    local
+    int bSeen=0        local
+    int musicTrack     local
+    int hSnd           local
+    float moveSize     local
+
+    vector ringStart local
+    vector ringEnd   local
+    vector orbStart  local
+    vector orbEnd    local
+    vector force     local
+    vector vecDist1  local
+    vector vecDist2  local
+
+    # subroutines
+    flex TeleportPlayer=0 local
+end
+
+code
+    startup:
+        Sleep(0.1); # Let engine inits a bit
+        player = GetLocalPlayerThing();
+        SetThingAlpha(fadePlate, 1.0); # make sure fade plate is visible
+
+        ringStart = VectorSet(0.05, 0.05, 0.5);
+        ringEnd   = VectorSet(0.3, 0.3, 0.0);
+        orbStart  = VectorSet(0.05, 0.05, 0.0);
+        orbEnd    = VectorSet(0.3, 0.3, 1.0);
+
+        # Debug remove
+        # StartCutscene(2);
+        # SetCameraFocus(2, camPos);
+        # SetCameraSecondaryFocus(2, camLook);
+        # SetCurrentCamera(2);
+        # Call user0;
+    return;
+
+    user0:
+        # Note, StartCutscene should be already invoked at this point (see sed_lof.cog)
+
+        # Remove fog
+        SetFog(0, '0 0 0', 0.0, 10000.0); # There is a bug in the rendering system for sprites, polylines & particles, where the fog rendering is never disabled.
+                                          # That's why we set the range to really far away so the fog doesn't affect the rendering
+
+        # Prepare player and fade plate
+        SetThingAlpha(fadePlate, 1.0);
+        StopThing(player);
+        SetThingAlpha(player, 0.0);
+        SetThingFlags(player, 0x80000); # disabled
+        SetActorFlags(player, 0x200000); # disable controls
+        ClearThingFlags(player, 0x4000); # no shadow
+        ClearPhysicsFlags(player, 0x1); # SITH_PF_USEGRAVITY; disable gravity to affect player so it won't fall immediately
+
+        # Prepare scene objects
+        ThingLightAnim(droid1, '1 0 0', 0.45, '1 0 0', 0.55, 0.6);
+        ThingLightAnim(droid2, '1 0 0', 0.45, '1 0 0', 0.55, 0.6);
+
+        # Play intro music
+        musicTrack = PlaySoundLocal(introMusic, 1, 0.0, 0x0, 0);
+        Sleep(5.5);
+
+        # Prepare camera
+        SetCameraLookInterp(2, 0);
+        SetCameraPosInterp(2, 0);
+        SetCameraFocus(2, camPos);
+        SetCameraSecondaryFocus(2, camLook);
+        SetCameraFOV(35, 0, 0);
+        Sleep(1.0);
+
+        # Start portal
+        SendMessage(lightningfx, user0);
+
+        # Indy appears through orb portal
+        ringSpot = CreateThing(tplGhost, appearPos);
+
+        # Create and animate the orb
+        orb = CreateThing(orbTpl, ringSpot);
+        AnimateSpriteSize(orb, orbStart, orbEnd, 1.0);
+
+        # Now fade-in and show the portal being opened
+        ThingFadeAnim(fadePlate, 1.0, 0.0, 1.8, 0);
+
+        # Bring in player
+        Sleep(2);
+        Call TeleportPlayer;
+
+        # Change camera to follow player
+        SetCameraLookInterp(2, 0);
+        SetCameraSecondaryFocus(2, player);
+        StopSound(musicTrack, 4.0);
+        Sleep(1.0);
+
+        # Change player drag and hide portal orb
+        SetThingAirDrag(player, 1.5);
+        ApplyForce(player, '0.1 0.1 -0.1'); # Apply little more forward force to keep playing fall animation
+        AnimateSpriteSize(orb, orbEnd, orbStart, 0.5);  # Diminish the orb
+        Sleep(1.0);
+
+        # Set camera to player external view
+        SetCameraPosition(1, GetThingPos(camPos)); # set ext camera position for later
+        SetCurrentCamera(1);
+
+        # Cleanup
+        Sleep(0.5);
+        DestroyThing(fadePlate);
+        DestroyThing(camPos);
+        DestroyThing(camLook);
+        DestroyThing(orb);
+        DestroyThing(ringSpot);
+
+        SetThingAirDrag(player, 0.5); # Restore player's air drag
+        ClearActorFlags(player, 0x200000); # enable player controls
+        EndCutscene();
+
+        # Loop ambient music
+        Sleep(1.5);
+        musicTrack = PlaySoundLocal(ambMusic, 0.75, 0.0, 0x1, 0);
+
+        # Indy acknowledge that is back in the aetherium
+        bSpeaking = 1;
+        Sleep(0.6);
+        PlayVoice(player, inAltReality, 1.0, 1);
+        Sleep(0.6);
+        PlayVoice(player, inLuckilyNotDemolished, 1.0, 1);
+        bSpeaking = 0;
+    return;
+
+    TeleportPlayer:
+        # Bring player back in time
+        TeleportThing(player, appearPos);
+        Sleep(0.1);
+        PlayMode(player, 83, 0); # play fall forward.. Start playing it here will make indy to play second half of falling animation when player appears
+        ClearThingFlags(player, 0x80000); # enabled
+
+        # Play fade magic sound
+        PlaySoundLocal(fadeMagicSfx, 1.0, 0, 0x0, 0);
+        SetPulse(0.25); # Set pulse speed for rings
+
+        # Fade in indy
+        Sleep(1.0);
+        ThingFadeAnim(player, 0, 1, 0.6, 0);
+        SetThingFlags(player, 0x4000); # shadow
+        SetPhysicsFlags(player, 0x1); # SITH_PF_USEGRAVITY; enable gravity for player
+        ApplyForce(player, '-0.1 -0.1 -0.1'); # Apply little forward force to keep play forward fall animation
+        Sleep(0.2);
+        SetThingAirDrag(player, 2.0); # slow down fall
+        PlayVoice(player, inFallScream, 1.0, 0); # scream while falling
+        SetPulse(0); # Stop ring generation
+    return;
+
+    pulse:
+        # ring generating logic
+        ring = CreateThing(ringTpl, ringSpot);
+        AnimateSpriteSize(ring, ringStart, ringEnd, 0.5);
+    return;
+
+    entered:
+        if (GetSenderRef() == beamSec)
+        {
+            if (!bBeamEntered)
+            {
+                bBeamEntered = 1;
+                PlaySoundThing(aetSplashSfx, player, 1.0, 1.0, 25, 0x80);
+                hSnd=PlaySoundThing(portSfx, membrane, 1.0, 1.0, 25, 0x81);
+            }
+            moveSize = GetThingMoveSize(player);
+            SetThingMoveSize(player, moveSize * 2); # increase move size 2x
+        }
+    return;
+
+    exited:
+        if (GetSenderRef() == beamSec) {
+            SetThingMoveSize(player, moveSize); # restore player move size
+        }
+    return;
+
+    crossed:
+        if (GetSenderRef() == portAdjoin)
+        {
+            # Crossed portal to alternative shw
+            SetThingMoveSize(player, moveSize); # Make sure player has correct size
+            PlaySoundLocal(portCrossSfx, 0.65, 0.0, 0x0, 0);
+
+            # Fadeout membrane
+            ThingFadeAnim(membrane, 1, 0, 2.0, 0);
+            ChangeSoundVol(hSnd, 0.0, 1);
+
+            Sleep(0.2);
+            PlayVoice(player, inFallShock, 1.0, 0);
+            SetThingAirDrag(player, 1.5);
+            Sleep(0.5);
+            SetThingAirDrag(player, 0.5); # restore air drag
+
+            # Cleanup as we passed to another dimension here
+            SetTimer(0.0); # make sure creature talk timer is stopped in case we missed it
+            SendMessage(lightningfx, user1); # Stop lighting effect
+            StopSound(musicTrack, 1);
+            DestroyThing(droid1); # kill droids
+            DestroyThing(droid2);
+            DestroyThing(membrane);
+        }
+    return;
+
+    touched:
+        if (GetSenderRef() == portAdjoin)
+        {
+            PlaySoundLocal(beamTouchSfx, 1.0, 0.0, 0x0, 0);
+            SetAdjoinFlags(portAdjoin, 0x2); # Make adjoin passable
+            ApplyForce(player, '0.1 0.1 -1.0'); # Push player through
+        }
+        else if (GetSenderID() == 2) # upper closed portal touched
+        {
+            if (bPortTouched) return;
+            bPortTouched = 1;
+
+            ringSpot = CreateThingAtPos(tplGhost, GetThingSector(player),  VectorAdd(GetThingPos(player), '0.0 0.0 0.1'), '0 0 0');
+            SetPulse(0.25);
+
+            PlaySoundLocal(portTouchSfx, 0.65, 0.0, 0x0, 0);
+            PlaySoundLocal(beamTouchSfx, 1.0, 0.0, 0x0, 0);
+
+            CreateLightning(ringSpot, '0 0 0', VectorAdd(GetThingPos(player), '0.0 0.0 0.05'), 0.03, 0.03, 0.8);
+            DamageThing(player, 80, 0x2, 0);  # SITH_DAMAGE_ENERGY = 0x2
+
+            if (GetThingHealth(player) < 1.0) {
+                SetCollideType(player, 1);
+            }
+
+            force = '0.0 0.0 -100.0';
+            ApplyForce(player, force); # Push player
+            Sleep(1.0);
+
+            SetPulse(0.0);
+            DestroyThing(ringSpot);
+            bPortTouched = 0;
+        }
+        else if (GetSenderID() == 3) # beam surface touched
+        {
+            if (bBeamTouched) return;
+            bBeamTouched = 1;
+
+            force = VectorScale(GetThingVel(player), -500.0);
+            force = VectorSet(VectorX(force), VectorY(force), 0);
+            PlaySoundLocal(beamTouchSfx, 1.0, 0.0, 0x0, 0);
+            MakeFairyDust(player, VectorAdd(GetThingPos(player), '0.0 0.0 0.0'));
+
+            ApplyForce(player, force); # Push player
+            Sleep(1.0);
+            bBeamTouched = 0;
+        }
+    return;
+
+    sighted:
+        if (bSeen || GetSenderID() != 1) return;
+        bSeen = 1;
+        SetTimer(0.5);
+    return;
+
+    timer:
+        SetTimer(0.5);
+        if (bSpeaking) return;
+        vecDist1 = VectorSub(GetThingPos(droid1), GetThingPos(player));
+        vecDist2 = VectorSub(GetThingPos(droid2), GetThingPos(player));
+        if ( (Abs(VectorZ(vecDist1)) <= 0.2 && VectorDot(VectorNorm(vecDist1), GetThingLVec(player)) >= 0.8) ||
+             (Abs(VectorZ(vecDist2)) <= 0.2 && VectorDot(VectorNorm(vecDist2), GetThingLVec(player)) >= 0.8) )
+        {
+            # player is less than 2m above or below droid and looking at droid
+            SetTimer(0.0); # stop it immediately
+            bSpeaking = 1;
+            PlayVoice(player, inStrangeCreatures, 1.0, 1);
+            bSpeaking = 0;
+        }
+    return;
+end

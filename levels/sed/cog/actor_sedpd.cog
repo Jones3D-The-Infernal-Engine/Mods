@@ -1,0 +1,39 @@
+symbols
+    message damaged
+    message sighted
+
+    thing player  local
+
+    flex rval        local
+    flex damage      local
+    flex damageType  local
+end
+
+code
+    sighted:
+        PlaySoundClass(GetSenderRef(), 1); # Play create sound
+    return;
+
+    damaged:
+        damage = GetParam(0);
+        damageType = GetParam(1);
+
+        if (BitTest(damageType, 0x01)) {
+            damage = damage * 0.50;
+        }
+
+        player = GetLocalPlayerThing();
+
+        if (GetThingParent(GetSourceRef()) == player)
+        {
+            if (GetCurWeapon(player) == 1)
+            {
+                if (GetThingHealth(player) > 1) {
+                    DamageThing(player, 1, 0x1, player);
+                }
+            }
+        }
+
+        ReturnEx(damage);
+    return;
+end

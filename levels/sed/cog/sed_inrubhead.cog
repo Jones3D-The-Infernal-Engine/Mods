@@ -1,0 +1,67 @@
+# Generic COG script for indy player or actor to play 0in_rubhead_4_4.key animation
+# and handles hat take off by the animation.
+#
+# user0: plays rubs head animation. global10 is set to 1 while the animation is playing.
+#   param0: ref to indy player or actor to play animation on
+#
+# [Crt Vavros]
+#======================================================================================
+
+symbols
+    message user0
+    message callback
+
+    keyframe inRubHead=0in_rubhead_4_4.key local
+    thing indy                             local
+
+    # models
+    model inNoHatHead=head_in_goodhair.3do local
+    model inHandHat=hand_in_hat.3do        local
+
+    int meshRefHat             local
+    int meshRefHead            local
+    int meshRefHand            local
+    int hatMesh                local
+    int headMesh               local
+    int handMesh               local
+    int callNum                local
+end
+
+code
+    user0:
+        global10 = 1;
+
+        indy = GetParam(0);
+        hatMesh  = GetMeshByName(indy, "inhat");
+        headMesh = GetMeshByName(indy, "inhead");
+        handMesh = GetMeshByName(indy, "inrhand");
+
+        CaptureThing(indy);
+        PlayKey(indy, inRubHead, 4, 0x12, 1);
+        ReleaseThing(indy);
+        global10 = 0;
+    return;
+
+     callback:
+        if (GetSenderRef() != indy) {
+            return;
+        }
+
+        # 0in_rubhead_4_4.key hat in hand handling
+        callNum = GetParam(1);
+        if (callNum == 21) # Put hat in hand
+        {
+            meshRefHat  = SetThingMesh(indy, hatMesh, inNoHatHead, 1);
+            meshRefHead = SetThingMesh(indy, headMesh, inNoHatHead, 0);
+            meshRefHand = SetThingMesh(indy, handMesh, inHandHat, 0);
+            SetThingVoiceHeads(indy, "inhead", "head_in_goodhair.3do", "head_in_asound_gh.3do", "head_in_amsound_gh.3do", "head_in_osound_gh.3do");
+        }
+        else if (callNum == 22) # Restore
+        {
+            RestoreThingMesh(indy, meshRefHat);
+            RestoreThingMesh(indy, meshRefHead);
+            RestoreThingMesh(indy, meshRefHand);
+            SetThingVoiceHeads(indy, "inhead", "", "head_in_asound.3do", "head_in_amsound.3do", "head_in_osound.3do");
+        }
+    return;
+end

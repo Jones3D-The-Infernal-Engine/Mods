@@ -1,0 +1,195 @@
+# SED cutscene script when indy discovers main mine area
+#
+# [Crt Vavros]
+#======================================================================================
+
+symbols
+    message startup
+    message arrived
+    message entered
+    message timer
+
+    sector triggerSec1 linkID=1 mask=0x400 # only player triggers message notify
+    sector triggerSec2 linkID=1 mask=0x400 # only player triggers message notify
+
+    cog camDollyCog    mask=0x1 # we use external cam dolly move COG so the camera moves independently and doesn't block this script
+    cog indyRubHeadCog nolink
+
+    thing indyActor   nolink
+    thing indyMovePos nolink
+
+    thing camDolly nolink
+    thing camLook  nolink
+
+    thing player local
+
+    # keyframes
+    keyframe inHandsOnHips=0in_stand4.key    local
+    keyframe inThinking=0in_thinking_4_4.key local
+
+    # sounds
+    sound musicSnd=mus_tem_tiki2.wav local
+
+    sound inWhistle=inxj006.wav        local # "<Whistle>"
+    sound inNewWorld=sed01j01.wav      local # "There's a whole new world here!"
+    sound inFindThisPlace=sed01j02.wav local # "I've been at this site in 1999, funny how I find out about this place years later."
+    sound inGoodDigger=sed01j03.wav    local # "I guess, a good digger would have found it long ago!"
+    sound inHeardBefore=sed01j04.wav   local # "Ha ha, where have I heard that before?"
+
+    # cam local vars
+    int camCurGoalFrame=0 local  # cam move goal frame (MoveCam & AccMoveCam)
+    int camMoveState=0    local  # cam move state to not repeat cam move frames which were already passed
+
+    # local vars
+    int keyTrack  local
+    int bPlayed=0 local
+    int music     local
+
+    # timer ids
+    int TID_CAM_ACC_TO_FRAME9=1 local
+    int TID_CAM_MOVELOOK=2      local
+end
+
+code
+    startup:
+        player = GetLocalPlayerThing();
+        SetThingFlags(indyActor, 0x80000); # make sure it's disabled
+    return;
+
+    entered:
+        if (GetSenderID() != 1 || bPlayed) return;
+        bPlayed = 1;
+
+        StartCutScene(1);
+
+        music = PlaySoundLocal(musicSnd, 0.50, 0.0, 0x0, 0);
+
+        # Prepare actor
+        MakeMeStop();
+        AISetCutSceneMode(indyActor);
+        CopyPlayerHolsters(player, indyActor);
+        ClearThingFlags(indyActor, 0x80000);
+        SetThingFlags(player, 0x80000);  # disabled
+
+        # Setup camera
+        SetCameraLookInterp(2, 0);
+        SetCameraPosInterp(2, 0);
+        SetCameraFocus(2, camDolly);
+        SetCameraSecondaryFocus(2, camLook);
+        SetCurrentCamera(2);
+        SetCameraFOV(55, 0, 0);
+        JumpToFrame(camDolly, camCurGoalFrame, GetThingSector(camDolly));
+
+        # Start indy walking towards end position (start of bridge)
+        AISetMoveSpeed(indyActor, 1.1);
+        #AISetLookThing(indyActor, introIndyLook1);
+        AISetMoveThing(indyActor, indyMovePos, 0);
+
+        # Start moving camera across the bridge behind indy to reveal the area
+        camCurGoalFrame = 4;
+        global0 = 5; # speed
+        SendMessageEx(camDollyCog, user0, camCurGoalFrame, 0, 0, 0); # Move cam dolly to frame #4
+
+        # Indy works
+        AIWaitForStop(indyActor);
+        keyTrack = PlayKey(indyActor, inHandsOnHips, 2, 0x04, 0); # lock animation on last frame
+        Sleep(0.5);
+        PlayVoice(indyActor, inWhistle, 1.0, 1);
+        Sleep(0.2);
+        PlayVoice(indyActor, inNewWorld, 1.0, 1);
+
+        Sleep(0.5);
+        SendMessageEx(indyRubHeadCog, user0, indyActor, 0, 0, 0); # play rub head animation
+        PlayVoice(indyActor, inFindThisPlace, 1.0, 1);
+
+        Sleep(2.3);
+        PlayKey(indyActor, inThinking, 4, 0x12, 0);
+        PlayVoice(indyActor, inGoodDigger, 1.0, 1);
+
+        Sleep(1.2);
+        SetCameraFOV(90, 1, 7); # start slow zoom out
+        PlayVoice(indyActor, inHeardBefore, 1.0, 1);
+        Sleep(1.5);
+
+        # Stop hands in hip animations
+        StopKey(indyActor, keyTrack, 0.7);
+        StopSound(music, 5.0);
+
+        # Teleport player
+        TeleportThing(player, indyActor);
+        Sleep(1.0);
+        SetThingFlags(indyActor, 0x80000);
+        ClearThingFlags(player, 0x80000); # show player
+
+        # Set ext. camera
+        SetCameraPosition(1, GetThingPos(camDolly)); # move ext cam to cam 2 pos
+        SetCurrentCamera(1);
+        ResetCameraFOV(0, 0);
+
+        ClearActorFlags(player, 0x200000); # enable player controls
+        EndCutScene();
+
+        # Cleanup
+        SendMessage(camDollyCog, user4); # Stop cam dolly movement
+        Sleep(0.1);
+        DestroyThing(indyActor);
+        DestroyThing(indyMovePos);
+        DestroyThing(camDolly);
+        DestroyThing(camLook);
+    return;
+
+    arrived:
+        if (GetSenderRef() == camDollyCog) # camera dolly object sent the message
+        {
+            if (GetParam(0) == 4) # At point on the bridge to slow down camera move towards indy
+            {
+                #DebugPrint("frame #4 hit");
+                # Slowdown cam movement
+                camCurGoalFrame = 6;
+                global0        = 1.5;  # min speed
+                global1        = 0.87; # deceleration coef.
+                global2        = 0.4;  # deceleration interval
+                SendMessageEx(camDollyCog, user1, camCurGoalFrame, 0, 0, 0); # decelerate  cam dolly to frame #6
+            }
+            else if (GetParam(0) == 6 && camMoveState < 1) # in front of indy
+            {
+                #DebugPrint("frame #6 hit");
+                # Slowdown even more to view indy from front side
+                camMoveState    = 1;
+                camCurGoalFrame = 9;
+                global0         = 0.4; # min speed
+                global1         = 0.8; # deceleration coef.
+                global2         = 0.3; # deceleration interval
+                SendMessageEx(camDollyCog, user1, camCurGoalFrame, 0, 0, 0); # decelerate  cam dolly to frame #9
+                SetTimerEx(4, TID_CAM_ACC_TO_FRAME9, 0, 0); # async wait 4 sec before accelerate camera
+            }
+            else if (GetParam(0) == 9 && camMoveState < 2) # At the top of the bridge and behind indy
+            {
+                #DebugPrint("frame #9 hit");
+                camMoveState    = 2;
+                camCurGoalFrame = 11;
+                global0         = 0.1;  # min speed
+                global1         = 0.85; # deceleration coef.
+                global2         = 0.46; # deceleration interval
+                SendMessageEx(camDollyCog, user1, camCurGoalFrame, 0, 0, 0); # decelerate  cam dolly to frame #11
+            }
+        }
+    return;
+
+    timer:
+        if (GetSenderID() == TID_CAM_ACC_TO_FRAME9)
+        {
+            #DebugPrint("Acc cam to frame #9");
+            global0 = 1.31; # max speed
+            global1 = 1.2;  # deceleration coef.
+            global2 = 0.4;  # deceleration interval
+            SendMessageEx(camDollyCog, user1, camCurGoalFrame, 0, 0, 0); # accelerate cam dolly to frame #9
+            SetTimerEx(4.0, TID_CAM_MOVELOOK, 0, 0); # async wait
+        }
+        else if (GetSenderID() == TID_CAM_MOVELOOK)
+        {
+            #DebugPrint("Moving camera look to frame #1");
+            MoveToFrame(camLook, 1, 0.8);
+        }
+    return;
+end

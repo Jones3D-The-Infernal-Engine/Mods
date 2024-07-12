@@ -1,0 +1,100 @@
+# COG script for generating smoke effect
+# user0 = start smoke effect
+# user1 = stop smoke effect
+# bStartupStart = 1 will start smoke effect on startup
+# surfStart and surfStop adjoin surfaces can be used to start and stop smoke effect when player crosses the surfaces
+#
+# [Crt Vavros]
+# ==============================================================================
+
+symbols
+    message startup
+    message crossed
+    message user0
+    message user1
+    message pulse
+
+    thing smokePos nolink
+    thing smoke    nolink local
+
+    template tmplSmoke=+exhaust
+
+    int bStartupStart=0    desc=start_effect_on_startup
+
+    # smoke vars
+    flex pulseTime=0.1
+    int numPuffsPerPulse=6 desc=num_created_puff_objects_per_cycle
+    flex life=3.0          desc=smoke_puff_life
+    flex speed=0.2
+    flex minSize=0.02
+    flex maxSize=0.4
+    flex scatterX=0.1
+    flex scatterY=0.1
+    flex scatterZ=0.5
+    flex dirX=-0.18
+    flex dirY=-0.18
+    flex dirZ=1.0
+    flex startAlpha=0.65
+    flex endAlpha=0.0
+
+    # start/stop adjoins
+    surface surfStart0 linkID=1 mask=0x400 # only player
+    surface surfStart1 linkID=1 mask=0x400
+    surface surfStop0  linkID=2 mask=0x400
+    surface surfStop1  linkID=2 mask=0x400
+
+    # local vars
+    int smokeNum     local
+    flex velX=0.0    local # calculated
+    flex velY=0.0    local # calculated
+    flex velZ=0.0    local # calculated
+    vector startSize local
+    vector endSize   local
+    vector vel       local
+end
+
+code
+    startup:
+        startSize = VectorSet(minSize, minSize, startAlpha);
+        endSize   = VectorSet(maxSize, maxSize, endAlpha);
+        if (bStartupStart) {
+            SetPulse(pulseTime);
+        }
+    return;
+
+    crossed:
+        if (GetSenderID() == 1)
+        {
+            SetPulse(pulseTime);
+        }
+        else if (GetSenderID() == 2)
+        {
+            SetPulse(0);
+        }
+    return;
+
+    user0:
+        SetPulse(pulseTime);
+    return;
+
+    user1:
+        SetPulse(0);
+    return;
+
+    pulse:
+        for ( smokeNum = 0; smokeNum < numPuffsPerPulse; smokeNum = smokeNum + 1 )
+        {
+            smoke = CreateThing(tmplSmoke, smokePos);
+            if (smoke == -1) return; # failed to create smoke object
+
+            SetLifeLeft(smoke, life);
+            AnimateSpriteSize(smoke, startSize, endSize, life);
+
+            velX = ((Rand() - 0.5) * scatterX + dirX) * speed; # -0.5 means 50% chance of negative
+            velY = ((Rand() - 0.5) * scatterY + dirY) * speed;
+            velZ = ((Rand() - 0.5) * (scatterZ - dirZ) + dirZ) * speed;
+            vel  = VectorSet(velX, velY, velZ);
+            SetThingVel(smoke, vel);
+        }
+    return;
+end

@@ -1,0 +1,44 @@
+symbols
+    message startup
+    message entered
+
+    sector sec1 mask=0x400
+    sector sec2 mask=0x400
+    sector sec3 mask=0x400
+    sector sec4 mask=0x400
+    sector sec5 mask=0x400
+    sector sec6 mask=0x400
+    sector sec7 mask=0x400
+    sector sec8 mask=0x400
+    sector sec9 mask=0x400
+    sector sec10 mask=0x400
+    sector sec11 mask=0x400
+    sector sec12 mask=0x400
+    sector sec13 mask=0x400
+    sector sec14 mask=0x400
+    sector sec15 mask=0x400
+    sector sec16 mask=0x400
+    sector sec17 mask=0x400
+    sector sec18 mask=0x400
+    sector sec19 mask=0x400
+    sector sec20 mask=0x400
+    sector sec21 mask=0x400
+    sector sec22 mask=0x400
+    sector sec23 mask=0x400
+    sector sec24 mask=0x400
+    sector sec25 mask=0x400
+    sector sec26 mask=0x400
+
+    thing indy local
+end
+
+code
+    startup:
+        Sleep(0.01);
+        indy = GetLocalPlayerThing();
+    return;
+
+    entered:
+    #if(!BitTest(GetPhysicsFlags(indy),0x1)&&GetMoveStatus(indy)!=28)DestroyThing(indy);else if(BitTest(GetPhysicsFlags(indy),0x2000)!=0)DestroyThing(indy);else if(GetCollideType(indy)==0)DestroyThing(indy);
+    return;
+end

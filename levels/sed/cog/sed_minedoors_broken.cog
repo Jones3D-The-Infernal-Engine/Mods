@@ -1,0 +1,119 @@
+# SED script for opening broken mine car doors
+#
+# [Crt Vavros]
+#======================================================================================
+
+symbols
+    message startup
+    message entered
+
+    thing doorLeft       nolink
+    thing doorRight      nolink
+    thing leftSparksPos  nolink
+    thing rightSparksPos nolink
+
+    sector doorSector nolink
+    surface surfOpen  mask=0x404
+
+    flex R=0.3
+    flex G=0.3
+    flex B=0.35
+
+    # Local vars
+    template tmplSparks=minecarsparks local
+    thing sparks                      local
+
+    sound sndOpen=sol_cardoor_open_c.wav                local
+    sound sndDoorScrape1=fol_in_scrapemetal_short.wav   local
+    sound sndDoorScrape2=fol_in_scrapemetal_med.wav     local
+    sound sndDourStuck=bab_door_metal_stop.wav          local
+    sound inJourneyEnd=sedxj04.wav                      local   # Uh-oh.... That doesn't look good. I think I'll have to find another way in!
+
+    vector color        local
+    vector sparksVel    local
+    vector thrust       local
+    int bOpened=0       local
+    int sender          local
+    int bMoving=0       local
+    int breakSndTrack=0 local
+    int nSparks=10      local
+
+    # Subroutines
+    flex OpenDoors=0 local
+end
+
+code
+    startup:
+        SectorAdjoins(doorSector, 0); # turn off adjoin
+        color = VectorSet(R, G, B);
+        SetThingLight(doorLeft, color, 0.001, 0.1);
+        SetThingLight(doorRight, color, 0.001, 0.1);
+    return;
+
+    entered:
+        if (BitTest(GetPhysicsFlags(GetSourceRef()), 0x01000000)) # if source is minecar
+        {
+            if ( GetSenderRef() == surfOpen)
+            {
+                thrust = GetThingThrust(GetLocalPlayerThing());
+                if (VectorY(thrust) > 0) # if mowing forward
+                {
+                    # break and add effect
+                    breakSndTrack = PlaySoundClass(GetSourceRef(), 13); # 13 - SITHSOUNDCLASS_RRUNMETAL
+                    ChangeSoundVol(breakSndTrack, 0.0, 0.60000002);
+                    Call OpenDoors;
+                }
+            }
+        }
+    return;
+
+    OpenDoors:
+        if (bOpened == 1 || bMoving == 1) {
+            return;
+        }
+
+        bMoving = 1;
+        SectorAdjoins(doorSector, 1); # turn on adjoin
+
+        # play door sounds
+        PlaySoundThing(sndOpen, doorLeft, 0.75, 15.0, 30.0, 0);
+        Sleep(0.02);
+        PlaySoundThing(sndOpen, doorRight, 0.75, 15.0, 30.0, 0);
+
+        # open the doors
+        MoveToFrame(doorLeft, 1, 0.5);
+        MoveToFrame(doorRight, 1, 2.2);
+
+        Sleep(0.2);
+        PlaySoundThing(sndDoorScrape1, doorLeft, 1.0, 30.0, 50.0, 0x200); # 0x200 - highest priority
+        PlaySoundThing(sndDoorScrape2, doorRight, 1.0, 30.0, 50.0, 0x200);
+        Sleep(0.02);
+        PlaySoundThing(sndDourStuck, doorRight, 1.0, 30.0, 50.0, 0x200);
+
+        while (nSparks > 0)
+        {
+            # Create door sparks
+            sparks = CreateThing(tmplSparks, leftSparksPos);
+            sparksVel = GetThingVel(sparks);
+            sparksVel = VectorSet(VectorX(sparksVel), VectorY(sparksVel), -0.5);
+            SetThingVel(sparks, sparksVel);
+            SetLifeleft(sparks, 0.5);
+
+            sparks = CreateThing(tmplSparks, rightSparksPos);
+            sparksVel = GetThingVel(sparks);
+            sparksVel = VectorSet(VectorX(sparksVel), VectorY(sparksVel), -0.5);
+            SetThingVel(sparks, sparksVel);
+            SetLifeleft(sparks, 0.5);
+
+            Sleep(0.1);
+            nSparks = nSparks -1;
+        }
+
+        # Indy says little hint
+        PlayVoice(GetLocalPlayerThing(), inJourneyEnd, 1.0, 0x200);
+        WaitForStop(doorLeft);
+
+        bOpened = 1;
+        bMoving = 0;
+    return;
+end

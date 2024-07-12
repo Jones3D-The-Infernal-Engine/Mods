@@ -1,0 +1,100 @@
+# COG creates wormhole effect at the location of object passed to this COG
+# making the illusion that the object appeared through wormhole portal of some sort
+#
+# user0(thing obj): Creates a wormhole effect at the object's location.
+#                   The specified object is disabled when the wormhole effect is created and then fades in.
+#                   If a wormhole is already active when the message is received,
+#                   the wormhole effect for the specified object is queued, and the object is disabled while waiting.
+#
+# [Crt Vavros]
+#======================================================================================
+
+symbols
+    message startup
+    message user0
+    message pulse
+    message timer
+
+    sound orbSnd=nub_charged_pad_c.wav
+    float orbSize=0.275
+    float duration=1.0
+
+    template ringTpl=+ripples_vert
+    template orbTpl=lensflarew
+
+    thing obj  local
+    thing orb  local
+    thing ring local
+
+    int bActive=0 local
+
+    vector ringStart local
+    vector ringEnd   local
+    vector orbStart  local
+    vector orbEnd    local
+end
+
+code
+    startup:
+        ringStart = VectorSet(0.05, 0.05, 0.5);
+        ringEnd   = VectorSet(orbSize, orbSize, 0.0);
+        orbStart  = VectorSet(0.05, 0.05, 0.0);
+        orbEnd    = VectorSet(orbSize, orbSize, 1.0);
+    return;
+
+    user0:
+        SetThingFlags(GetParam(0), 0x80000);  # disable object
+        if (bActive)
+        {
+            # Queue object's orb creation due to script being active atm
+            #DebugInt(GetParam(0), "user0: queuing obj:");
+            SetTimerEx(0.1, GetParam(0), 0, 0);
+            return;
+        }
+        bActive = 1;
+
+        obj = GetParam(0);
+        #DebugInt(obj, "user0: obj:");
+        orb = CreateThing(orbTpl, obj);
+
+        ClearThingFlags(obj, 0x4000); # no shadow
+        StopThing(obj);
+        SetThingAlpha(obj, 0.0);
+        SetThingFlags(obj, 0x80000);  # disabled
+
+        AnimateSpriteSize(orb, orbStart, orbEnd, 0.5);
+        PlaySoundThing(orbSnd, orb, 1, 1.0, 25.0, 0x80);
+
+        # Set ring create pulse
+        SetPulse(0.25);
+
+        Sleep(duration);
+        ClearThingFlags(obj, 0x80000); # enabled
+        StopThing(obj);
+        ThingFadeAnim(obj, 0, 1, 0.4, 0);
+        SetThingFlags(obj, 0x4000); # shadow
+
+        Sleep(0.2);
+        SetPulse(0);
+        DestroyThing(orb);
+        bActive = 0;
+    return;
+
+    pulse: # ring creating pulse
+        ring = CreateThing(ringTpl, obj);
+        AnimateSpriteSize(ring, ringStart, ringEnd, 0.5);
+    return;
+
+    timer: # waiting queue timer
+        #DebugInt(GetSenderID(), "timer: obj:");
+        if (bActive)
+        {
+            #DebugInt(GetSenderID(), "timer: queuing obj:");
+            SetTimerEx(0.1, GetSenderID(), 0, 0);
+            return;
+        }
+        #DebugInt(GetSenderID(), "timer: calling user0 with obj:");
+        SetParam(0, GetSenderID());
+        Call user0;
+    return;
+end

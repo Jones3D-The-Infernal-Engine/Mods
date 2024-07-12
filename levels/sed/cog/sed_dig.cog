@@ -1,0 +1,426 @@
+# SED script for digging up the idol and imp1 from fig site
+#
+# [Crt Vavros]
+#======================================================================================
+
+symbols
+    message startup
+    message activated
+    message callback
+    message timer
+    message sighted
+    message pulse
+    message entered
+
+    # Sectors
+    sector snakeShowSec mask=0x400 # only player triggers
+
+    # Surfaces
+    surface digSurf1 linkID=1
+    surface digSurf2 linkID=1
+    surface digSurf  local
+
+    # Things
+    thing digPos1 nolink
+    thing digPos2         # sends sighted message
+    thing digPos  local
+
+    thing dirtPile1 nolink
+    thing dirtPile2 nolink
+    thing dirtPile  local
+
+    thing imp1LookPos nolink
+    thing shovel      nolink
+
+    thing camPos1 nolink
+    thing camPos2 nolink
+    thing camPos  local
+
+    thing camLook1 nolink
+    thing camLook2 nolink
+    thing camLook  local
+
+    thing camEndPos1 nolink
+    thing camEndPos2 nolink
+    thing camEndPos  local
+
+    thing indyActor
+    thing player local
+    thing dirt   local
+
+    thing snake1 nolink
+    thing snake2 nolink
+
+    # Templates
+    template indyTpl=indy_sh_actor local
+    template dirtTpl=dirt          local
+
+    # Keyframes
+    keyframe inDig=in_dig.key                local
+    keyframe inKneelDown=0in_stand1_bd_6.key local #in_activate_low.key local
+    keyframe inKneel=0in_stand6.key          local
+    keyframe inStandUp=0in_stand6_bd_1.key   local
+    keyframe inExamine=0in_examimp_17_17.key local #0in_examobj_1_1.key   local
+    keyframe inPutAway=0in_put_imp_17_1.key  local
+    keyframe inStand=0in_stand1.key local
+
+    # Materials
+    material dustMat=gen_a4sfx_dirtcloud.mat local
+
+    # Models
+    model handInShovel=hand_in_shovel.3do local
+    model handInImp1=imp1_vibrat.3do      local
+
+    # Sounds
+    sound dugSnd=inxj232.wav               local # "Well well look at this"
+    sound digSnd=lag_in_shovel_in.wav      local
+    sound throwDirt=lag_in_shovel_toss.wav local
+
+    sound noDigLine1=inxj058.wav           local # "That wont work...""
+    sound noDigLine2=sedxj07.wav           local # "I don't think so"
+    sound noDigLine3=inxj088.wav           local # "Nope"
+
+    sound oldDigSite=sed00j01.wav          local # "Ahh, my old dig site. It looks to be intact, just as I left it!""
+    sound diggableSite=sed00j02a.wav       local # "I got feeling there's more...""
+    sound needTools=sed00j02b.wav          local # "But I'll need some tools to get the job done.""
+
+    # Indy imp1 discover say lines
+    sound hitSomething=inxj003.wav         local # "There's something in there"
+    sound waitWhat=sed00j03.wav            local # "Wait... what is this?""
+    sound cantBeRight=sed00j04.wav         local # "What the hack? ... This can't be right?!"
+    sound leftInRuins=sed00j05.wav         local # "I left this part of the Babylonian machine in those ruins. What is it doing here?"
+    sound unless=sed00j06.wav              local # "Unless... Oh no!"
+
+    sound hitImp1=gen_machete_hit_wood.wav      local #fol_in_hitearth.wav              local
+    sound dirtMove=sed_dirt_move.wav               local
+    sound dirtFalling=gen_fallingrock_c.wav        local
+    sound musImp1Discovered=mus_aet_pocket_riv.wav local
+
+    # Local vars
+    int surfIdx       local
+    int curLine=-1    local
+    int prevLine=-1   local
+    int curCam        local
+    int bSpeaking=0   local
+    int handNode      local
+    int swapRef=-1    local
+    int digCount      local
+    int curTrack      local
+    int curSndChannel local
+    int imp1Bin=14    local
+    int shovelBin=62  local
+    int bHintSaid     local
+    int state=0       local
+
+    vector vecDirtPos local
+    vector vecDist    local
+
+    # Subroutines
+    flex Dig=0             local
+    flex RestoreHandMesh=0 local
+    flex FinishCutscene=0  local
+end
+
+code
+    startup:
+        Sleep(0.01); # Let engine initializes a bit
+        player   = GetLocalPlayerThing();
+        handNode = GetNodeByName(player, "inrhand");
+
+        # hide things
+        SetThingFlags(shovel, 0x80000);
+        SetThingFlags(dirtPile1, 0x80000);
+        SetThingFlags(dirtPile2, 0x80000);
+        SetThingFlags(snake1, 0x80000); # snakes has to be hidden due to sitting on the kill floor
+        SetThingFlags(snake2, 0x80000);
+
+        # hide dig surf
+        ClearAdjoinFlags(digSurf1, 3);
+        SetFaceGeoMode(digSurf1, 4);
+        ClearAdjoinFlags(digSurf2, 3);
+        SetFaceGeoMode(digSurf2, 4);
+    return;
+
+    entered:
+        if (GetSenderRef() != snakeShowSec) return;
+
+        # Show snakes
+        # Should be safe now due kill floors must be disable by now
+        #DebugPrint("entered: enabling snakes..");
+        ClearThingFlags(snake1, 0x80000);
+        ClearThingFlags(snake2, 0x80000);
+        snakeShowSec = -99; # this should prevent running this logic again
+    return;
+
+    sighted:
+        if (GetSenderRef() != digPos2) return;
+        SetPulse(0.5); # start pulse to measure distance & orientation to dig site
+
+
+    return;
+
+    pulse:
+        if (bSpeaking) return;
+        vecDist = VectorSub(GetThingPos(digPos2), GetThingPos(player));
+        if (VectorLen(vecDist) <= 0.4 && VectorDot(VectorNorm(vecDist), GetThingLVec(player)) >= 0.8)
+        {
+            # player is less than 4m away and looking at the dig site
+            SetPulse(0.0); # stop it immediately
+            bSpeaking = 1;
+            PlayVoice(player, oldDigSite, 1.0, 1);
+            bSpeaking = 0;
+        }
+    return;
+
+    activated:
+        if (GetSenderID() != 1 || state >= 2) return;
+
+        if (GetCurItem(player) == 62) # 62 - shovel
+        {
+            if (bSpeaking) return;
+
+            surfIdx = 0;
+            dirtPile = dirtPile1;
+            digSurf = GetSenderRef();
+            if (digSurf == digSurf2)
+            {
+                surfIdx = 1;
+                dirtPile = dirtPile2;
+            }
+
+            camPos    = camPos1[surfIdx];
+            camLook   = camLook1[surfIdx];
+            camEndPos = camEndPos1[surfIdx];
+            digPos    = digPos1[surfIdx];
+
+            # Do dig cutscene
+            Call Dig;
+            ClearThingFlags(dirtPile, 0x80000); # show dirt pile
+
+            if (surfIdx == 0) # idol find surf?
+            {
+                Call FinishCutscene;
+                PlayVoice(player, dugSnd, 1.0, 0);
+            }
+            else # indy found imp1
+            {
+                # Indy spots something familiar in the dirt
+                StopKey(indyActor, curTrack, 0.2);
+                Sleep(0.3);
+                #AIClearCutsceneMode(indyActor);
+                AISetLookThing(indyActor, imp1LookPos);
+                Sleep(0.95);
+                #AISetCutsceneMode(indyActor);
+
+                # Kneel down to dig site and move dirt with hand
+                #StopKey(indyActor, curTrack, 0.0);
+                curTrack = PlayKey(indyActor, inKneelDown, 4, 0x14, 0);
+                Sleep(0.2);
+                PlayVoice(indyActor, waitWhat, 1.0, 0); # "Wait... what is this?""
+                Sleep(GetKeyLen(inKneelDown) - 0.2);
+
+                Call RestoreHandMesh; # remove shovel from hand
+                curSndChannel = PlaySoundLocal(dirtMove, 1.0, 0.0, 0x1, 0);
+                StopKey(indyActor, curTrack, 0.0);
+                curTrack = PlayKey(indyActor, inKneel, 2, 0x10, 0);
+                Sleep(4.0);
+
+                # Indy unearths imp1
+                PlayVoice(indyActor, cantBeRight, 1.0, 1); # "What the hack? ... This can't be right?!"
+                Sleep(0.7);
+                StopSound(curSndChannel, 0);
+                curSndChannel = PlaySoundLocal(dirtFalling, 1.0, 0.0, 0x1, 0);
+                Sleep(1.3);
+
+                # Play imp1 discover ambient music
+                PlaySoundLocal(musImp1Discovered, 0.55, 0.0, 0x0, 0);
+                Sleep(0.8);
+                StopSound(curSndChannel, 0);
+                StopKey(indyActor, curTrack, 0.0);
+
+                # Put shovel on the ground (remove from inv) & pickup IMP1 from dig site
+                ClearThingFlags(shovel, 0x80000); # show
+                SetInv(player, shovelBin, 0.0);
+                SetInvAvailable(player, shovelBin, 0);
+                swapRef = SetThingMesh(indyActor, handNode, handInImp1, 0); # put imp in indy's hand
+
+                # Add some dirt falling off discovered imp1
+                vecDirtPos = GetThingJointPos(indyActor, handNode);
+                dirt = CreateThing(dirtTpl, indyActor);
+                PlaySoundLocal(dirtFalling, 1.0, 0.0, 0x0, 0);
+                AnimateSpriteSize(dirt, '0.03 0.03 1.0', '0.225 0.28 0.0', 1.1);
+                MaterialAnim(dustMat, 8, 0x0);
+
+                # Stand up and examine
+                MoveToFrame(camPos, 2, 0.08);
+                SetCameraFOV(45, 1, 5);
+                PlayKey(indyActor, inStandUp, 2, 0x12, 1); # indy stands up
+                PlayVoice(indyActor, leftInRuins, 1.0, 0); # "I left this part of the Babylonian machine in those ruins. What is it doing here?"
+                curTrack = PlayKey(indyActor, inExamine, 2, 0x00, 0); # indy examines imp
+                Sleep(3);
+                StopKey(indyActor, curTrack, 0.5);
+                Sleep(1.2);
+
+                # Store imp1 in inv
+                curTrack = PlayKey(indyActor, inPutAway, 2, 0x12, 0); # .. puts imp in inv.
+                Sleep(1.4);
+                curSndChannel = PlayVoice(indyActor, unless, 1.2, 0); # "unless... oh no!""
+                Sleep(0.5);
+
+                Call FinishCutscene;
+            }
+        }
+        else if (!bSpeaking)
+        {
+            if (GetCurItem(player) > 0)
+            {
+                bSpeaking = 1;
+                curLine = RandBetween(0, 2);
+                while (curLine == prevLine) {
+                    curLine = RandBetween(0, 2);
+                }
+
+                PlayVoice(player, noDigLine1[curLine], 1.0, 1);
+                prevLine = curLine;
+                bSpeaking = 0;
+            }
+            else if (!bHintSaid)
+            {
+                bSpeaking = 1;
+                bHintSaid = 1;
+                PlayVoice(player, diggableSite, 1.0, 1);
+                if (!IsInvAvailable(player, shovelBin)) {
+                    PlayVoice(player, needTools, 1.0, 1);
+                }
+                bSpeaking = 0;
+            }
+        }
+    return;
+
+    Dig:
+        digCount = 0;
+
+        # Bring in indy actor
+        MakeMeStop();
+
+        AIClearCutsceneMode(indyActor); # this will make unfreeze previous dig animation lock due to AISetCutsceneMode
+        TeleportThing(indyActor, digPos);
+        DeselectWeaponWait(player);
+        CopyPlayerHolsters(player, indyActor);
+        StartCutscene(1);
+
+        # Setup camera
+        curCam = GetCurrentCamera();
+        SetCameraLookInterp(2, 0); # Disable interp to set-up cam position and look
+        SetCameraFocus(2, camPos);
+        SetCameraSecondaryFocus(2, camLook);
+        SetCurrentCamera(2);
+        SetCameraFOV(60, 0, 0);
+
+        AISetCutsceneMode(indyActor);
+        SetThingFlags(player, 0x80000);
+        ClearThingFlags(indyActor, 0x80000);
+
+        # Put the shovel in indy's hand and move cam to scene
+        swapRef = SetThingMesh(indyActor, handNode, handInShovel, 0);
+        MoveToFrame(camPos, 1, 2);
+        SetCameraFOV(55, 1, 2);
+
+        # Indy digs here
+        SetTimer(1.0);
+        curTrack = PlayKey(indyActor, inDig, 4, 0x12, 0);
+        Sleep(7);
+        StopKey(indyActor, curTrack, 0.2);
+        curTrack = PlayKey(indyActor, inStand, 6, 0x2, 0);
+
+        # Show hole
+        SetAdjoinFlags(digSurf, 3);
+        SetFaceGeoMode(digSurf, 0);
+    return;
+
+    FinishCutscene:
+        # Restore player
+        CopyOrientAndPos(indyActor, player);
+        SetThingFlags(indyActor, 0x80000); # hide actor
+        StopKey(indyActor, curTrack, 0.0); # make sure the keyframe won't overlap with next cutscene
+        ClearThingFlags(player, 0x80000);
+        ClearActorFlags(player, 0x200000); # enable controls
+        Call RestoreHandMesh;
+
+        # Restore camera and finish scene
+        SetCameraPosition(1, GetThingPos(camEndPos));
+        SetCurrentCamera(curCam);
+        ResetCameraFOV(0, 0.0);
+        EndCutscene();
+        state = state + 1;
+
+        # Do cleanup
+        Sleep(0.1); # Wait for cutscene to fully finishes
+
+        DestroyThing(digPos);
+        DestroyThing(camPos);
+        DestroyThing(camLook);
+
+        if (camEndPos1 != camEndPos2) {
+            DestroyThing(camEndPos);
+        }
+
+        if (state >= 2) # if all holes have been dug up, actor and imp1 look things
+        {
+            WaitForSound(curSndChannel); # Incase the last cutscene is imp1 discovery, we should wait here for the indyActor to finish talking
+            Print("sed_dig.cog: destroying the rest of things!");
+            DestroyThing(imp1LookPos);
+            DestroyThing(indyActor);
+            if (camEndPos1 == camEndPos2) {
+                DestroyThing(camEndPos);
+            }
+        }
+    return;
+
+    timer: # First time digSnd played.
+        PlaySoundLocal(digSnd, 1.0, 0.0, 0x0, 0);
+    return;
+
+    callback:
+        if (GetParam(1) == 16) # sent activate from digging animation
+        {
+            vecDirtPos = GetThingJointPos(indyActor, handNode);
+            dirt       = CreateThingAtPos(dirtTpl, GetThingSector(indyActor), vecDirtPos, '0 0 0');
+
+            PlaySoundLocal(throwDirt, 1.0, 0.0, 0x0, 0);
+            AnimateSpriteSize(dirt, '0.03 0.03 1.0', '0.2 0.225 0.0', 1.1);
+            MaterialAnim(dustMat, 8, 0x0);
+
+            if (digCount >= 2) return;
+            digCount = digCount + 1;
+            Sleep(1.0);
+            PlaySoundLocal(digSnd, 1.0, 0.0, 0x0, 0);
+
+            if (digCount == 2 && surfIdx == 1) # hit imp1
+            {
+                Sleep(0.1);
+                PlaySoundLocal(hitImp1, 1.0, 0.0, 0x0, 0);
+                Sleep(0.3);
+                PlayVoice(indyActor, hitSomething, 1.0, 0);
+            }
+        }
+        else if (GetParam(1) == 21) # sent from put away animation
+        {
+            # Hide imp1 hand & add imp1 to player's inventory
+            Call RestoreHandMesh;
+            ChangeInv(player, imp1Bin, 1.0);
+            SetInvAvailable(player, imp1Bin, 1);
+            Sleep(0.1);
+            JonesInvItemChanged(imp1Bin);
+            global14 = 1; # This will alow adventure to continue
+        }
+    return;
+
+    RestoreHandMesh:
+        if (swapRef != -1)
+        {
+            RestoreThingMesh(indyActor, swapRef);
+            swapRef = -1;
+        }
+    return;
+end

@@ -1,0 +1,68 @@
+# SED jeep script
+#
+# [Crt Vavros]
+#======================================================================================
+
+symbols
+    message startup
+    message activated
+
+    thing jeep
+    thing shovel nolink
+    thing player local
+
+    sound noSenseLine=sedxj06.wav local
+    sound inLine1=inxj088.wav     local
+    sound inLine2=sedxj07.wav     local
+    sound inLine3=sedxj08.wav     local
+
+    int bWasActivated=0 local
+    int bSpeaking=0     local
+    int curLine=-1      local
+    int prevLine=-1     local
+
+    flex ldot local
+    flex rdot local
+    vector dir local
+end
+
+code
+    startup:
+        Sleep(0.01); # let engine initializes a bit
+        player = GetLocalPlayerThing();
+        AttachThingToThingEx(shovel, jeep, 0xC); # SITH_ATTACH_THING = 0x4 | SITH_ATTACH_NOMOVE = 0x8,
+    return;
+
+    activated:
+        if (bSpeaking) return;
+
+        # Check if player is standing relative to the jeep
+        dir  = VectorNorm(VectorSub(GetThingPos(jeep), GetThingPos(player)));
+        ldot = VectorDot(GetThingLVec(jeep), dir);
+        rdot = VectorDot(GetThingRVec(jeep), dir);
+
+        # Check if player is positioned near driver seat entrance
+        if ((rdot >= 0.904) && (rdot <= 0.997) && (ldot >= -0.29) && (ldot <= 0.58))
+        {
+            if (!bWasActivated)
+            {
+                bWasActivated = 1;
+                bSpeaking = 1;
+                PlayVoice(player, noSenseLine, 1.0, 1);
+            }
+            else
+            {
+                bSpeaking = 1;
+                curLine = RandBetween(0, 2);
+                while (curLine == prevLine) {
+                    curLine = RandBetween(0, 2);
+                }
+                PlayVoice(player, inLine1[curLine], 1.0, 1);
+                prevLine = curLine;
+            }
+
+            Sleep(0.5); # wait a bit before allowing indy to say another line
+            bSpeaking = 0;
+        }
+    return;
+end

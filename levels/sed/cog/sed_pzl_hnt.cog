@@ -1,0 +1,313 @@
+# SED COG Script
+#
+# [Crt Vavros]
+# ===================================================================
+
+symbols
+    message startup
+    message entered
+    message activated
+    message timer
+
+    thing indyActor
+    thing camSpot1      nolink
+    thing camSpot2      nolink
+    thing tabletTarget1 nolink
+    thing tabletTarget2 nolink
+    thing pushblock
+
+    surface hintSurf1      mask=0x400  # only player can activate
+    surface hintSurf2      mask=0x400
+    surface hideAdjoin     nolink      # adjoin hidden on startup and shown when showAdjoinSurf is entered by pushblock
+    surface showAdjoinSurf mask=0x80   # only cog thing type aka push block can activate
+
+    sector ssec1 mask=0x400 linkID=1
+    sector ssec2 mask=0x400 linkID=1
+    sector ssec3 mask=0x400 linkID=1
+
+    cog openPortCog
+    cog aetCreaturesCog
+
+    sound inHint1a=sed06j01a.wav           local
+    sound inHint1b=sed06j01b.wav           local
+    sound inHint1c=sed06j01c.wav           local
+    sound inHint2a=sed06j02a.wav           local
+    sound inHint2b=sed06j02b.wav           local
+    sound inHint2c=sed06j02c.wav           local
+
+    sound musStrange=mus_gen_strange1.wav  local
+    sound musEerie1=mus_gen_eerie1.wav     local
+    sound musEerie2=mus_aet_pocket_pyr.wav local
+    sound musEerie3=mus_gen_magic1.wav     local
+
+    keyframe inStand4=0in_stand4.key          local
+    keyframe inSideToHips=0in_stand1_bd_4.key local
+    keyframe inHipsToSide=0in_stand4_bd_1.key local
+    keyframe inReading=0in_readtablet_4_4.key local
+    keyframe inReading2=0in_nod_4_4.key       local
+    keyframe inArmsUp=0in_armsup_1_1.key      local
+    keyframe inThinking=0in_thinking_4_4.key  local
+
+    # local vars
+    thing player    local
+    thing cam1Spot  local
+    thing cam1Look  local
+
+    template tplGhost=ghost local
+    keyframe inReadingKey   local
+    surface  activatedSurf  local
+
+    int hintIdx=0      local
+    int bRepeat=0      local
+    int curTrack1=-1   local
+    int curTrack2=-1   local
+    int curSound=-1    local
+    int sss=0          local
+    int hintState=0    local
+    int i              local
+
+    float viewangle           local
+    float SaySurfHint1Func=-1 local
+    float SaySurfHint2Func=-1 local
+    float hintFunc=-1         local
+
+    # subroutines
+    float SayHint1=1       local
+    float SayHint2=2       local
+    float BeginCutscene=0  local
+    float FinishCutscene=0 local
+end
+
+code
+    startup:
+        Sleep(0.1); # wait system init a little bit
+        player = GetLocalPlayerThing();
+
+        # Hide sector
+        ClearAdjoinFlags(hideAdjoin, 0x3); # make adjoin not visible and block movement
+        SetFaceGeoMode(hideAdjoin, 4); # tex mode
+    return;
+
+    timer: # does portal cog handling
+        SendMessage(openPortCog, user1); # Do small earth quake
+        if (hintState == 2) # all hints have been read open portal
+        {
+            Sleep(13);
+            SendMessage(openPortCog, user0); # open portal
+            SendMessage(aetCreaturesCog, user0); # enable aetherium creatures COG
+        }
+    return;
+
+    entered:
+        if (GetSenderID() == 1)
+        {
+            if (BitTest(GetSectorFlags(GetSenderRef()), 0x1000000)) return;
+            SetSectorFlags(GetSenderRef(), 0x1000000); # mark sector to have already been visited by player (0x1000000 unused flag)
+
+            if (sss == 0) {
+                PlaySoundLocal(musEerie1, 1, 0, 0, 0);
+                sss = 1;
+            }
+            else if (sss == 1) {
+                PlaySoundLocal(musEerie2, 1, 0, 0, 0);
+                sss = 2;
+            }
+            else if (sss == 2) {
+                PlaySoundLocal(musEerie3, 1, 0, 0, 0);
+                sss = 3;
+            }
+        }
+        else if (GetSenderRef() == showAdjoinSurf) # push block entered show surface
+        {
+            SetAdjoinFlags(hideAdjoin, 0x3); # make adjoin  visible and allow movement
+            SetFaceGeoMode(hideAdjoin, 0); # not drawn
+        }
+    return;
+
+    activated:
+        activatedSurf = GetSenderRef();
+        if (activatedSurf != hintSurf1 && activatedSurf != hintSurf2) return;
+
+        if (activatedSurf == hintSurf1)
+        {
+            if (SaySurfHint1Func == -1)
+            {
+                if (hintState == 0) {
+                    SaySurfHint1Func = SayHint2;
+                }
+                else {
+                    SaySurfHint1Func = SayHint1;
+                }
+            }
+            else {
+                bRepeat = 1;
+            }
+
+            inReadingKey = inReading;
+            hintFunc = SaySurfHint1Func;
+        }
+        else
+        {
+            if (SaySurfHint2Func == -1)
+            {
+                if (hintState == 0) {
+                    SaySurfHint2Func = SayHint2;
+                }
+                else {
+                    SaySurfHint2Func = SayHint1;
+                }
+            }
+            else {
+                bRepeat = 1;
+            }
+
+            inReadingKey = inReading2;
+            hintFunc = SaySurfHint2Func;
+        }
+
+        if (hintFunc == SayHint1) {
+            Call SayHint1;
+        }
+        else {
+            Call SayHint2;
+        }
+
+        if (!bRepeat) # if new cuniform was discovered
+        {
+            hintState = hintState + 1;
+            SetTimer((Rand() + 1)  * 3); # set timer for portal cog stuff
+        }
+
+        bRepeat = 0;
+    return;
+
+    SayHint1:
+        Call BeginCutscene;
+
+        if (bRepeat) {
+            PlayVoice(indyActor, inHint1b, 1, 1);
+        }
+        else {
+            curTrack1 = PlayKey(indyActor, inStand4, 2, 0x00, 0);
+            PlayKey(indyActor, inSideToHips, 4, 0x12, 0);
+
+            curSound = PlayVoice(indyActor, inHint2a, 1, 1);
+            Sleep(0.2);
+
+            curTrack2 = PlayKey(indyActor, inReadingKey, 4, 0x10, 0);
+            Sleep(0.3);
+
+            PlayVoice(indyActor, inHint1b, 1, 0);
+            Sleep(3);
+            curSound = PlaySoundLocal(musStrange, 0.5, 0, 0, 0);
+            Sleep(3);
+
+            StopKey(indyActor, curTrack1, 0.5);
+            StopKey(indyActor, curTrack2, 0.5);
+            Sleep(1.2);
+            StopSound(curSound, 5);
+
+            Sleep(0.5);
+            curSound = PlayVoice(indyActor, inHint1c, 1, 0);
+            Sleep(0.5);
+            curTrack1 = PlayKey(indyActor, inArmsUp, 4, 0x12, 0);
+            WaitForSound(curSound);
+            StopKey(indyActor, curTrack1, 0.5);
+        }
+
+        Call FinishCutscene;
+    return;
+
+    SayHint2:
+        Call BeginCutscene;
+
+        if (bRepeat) {
+            PlayVoice(indyActor, inHint2b, 1, 1);
+        }
+        else {
+            curTrack1 = PlayKey(indyActor, inStand4, 2, 0x00, 0);
+            PlayKey(indyActor, inSideToHips, 4, 0x12, 0);
+
+            PlayVoice(indyActor, inHint1a, 1, 1);
+            Sleep(0.2);
+
+            curTrack2 = PlayKey(indyActor, inReadingKey, 4, 0x12, 0);
+            Sleep(0.5);
+
+            PlayVoice(indyActor, inHint2b, 1, 1);
+            StopKey(indyActor, curTrack2, 0.5);
+
+            Sleep(0.8);
+
+            curTrack2 = PlayKey(indyActor, inThinking, 4, 0x12, 0);
+            Sleep(1.3);
+            PlayVoice(indyActor, inHint2c, 1, 1);
+            Sleep(0.7);
+            StopKey(indyActor, curTrack1, 0.5);
+            StopKey(indyActor, curTrack2, 0.5);
+            PlayKey(indyActor, inHipsToSide, 4, 0x12, 1); # 0.9s
+        }
+
+        Call FinishCutscene;
+    return;
+
+    BeginCutscene:
+        MakeMeStop();
+        StartCutscene(1);
+
+        # Prepare indy actor
+        TeleportThing(indyActor, player);
+        CopyPlayerHolsters(player, indyActor);
+        ClearThingFlags(indyActor, 0x80000);
+        SetThingFlags(player, 0x80000);
+
+        # camera offset...
+        if (GetSenderRef() == hintSurf1) {
+            hintIdx = 0;
+        }
+        else {
+            hintIdx = 1;
+        }
+
+        cam1Spot = CreateThing(tplGhost, camSpot1[hintIdx]);
+        cam1Look = CreateThing(tplGhost, camSpot1[hintIdx]);
+
+        viewangle = GetCameraFOV();
+        MakeCamera2LikeCamera1(cam1Spot, cam1Look);
+        SetCameraLookInterp(2, 0);
+        SetCameraPosInterp(2, 0);
+        SetCameraFocus(2, cam1Spot);
+        SetCameraSecondaryFocus(2, cam1Look);
+        SetCurrentCamera(2);
+        SetCameraFOV(viewangle, 0, 0.0);
+
+        SetCameraLookInterp(2, 1);
+        SetCameraPosInterp(2, 1);
+        SetCameraInterpSpeed(2, 2.0);
+        SetCameraFOV(80, 1, 1.0);
+        SetCameraFocus(2, camSpot1[hintIdx]);
+        SetCameraSecondaryFocus(2, tabletTarget1[hintIdx]);
+
+        AISetLookThing(indyActor, tabletTarget1[hintIdx]);
+        AIWaitForStop(indyActor);
+    return;
+
+    FinishCutscene:
+        CopyOrientAndPos(indyActor, player);
+        ClearThingFlags(player, 0x80000);
+        SetThingFlags(indyActor, 0x80000);
+
+        DestroyThing(cam1Spot);
+        DestroyThing(cam1Look);
+
+        SetCameraPosition(1, GetThingPos(GetPrimaryFocus(2))); # move ext cam to cam 2 pos;
+        SetCurrentCamera(1);
+        ResetCameraFOV(0, 0);
+
+        SetCameraLookInterp(2, 0);
+        SetCameraPosInterp(2, 0);
+
+        ClearActorFlags(player, 0x200000); # enable controls
+        EndCutscene();
+    return;
+end

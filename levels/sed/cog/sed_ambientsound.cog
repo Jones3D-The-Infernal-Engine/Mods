@@ -1,0 +1,58 @@
+# COG Script for playing ambient sound when entering sector
+#
+# user0 - starts playing ambient sound
+# user1 - fades out and stops playing
+
+# [Crt Vavros]
+# ===================================================================
+
+symbols
+    message entered
+    message user0
+    message user1
+
+    thing ambientPos nolink
+
+    sector startAmbient
+    sector stopAmbient
+
+    sound ambientSound=gen_amb_eerie_01.wav
+
+    int sndChnl    local
+    int bPlaying=0 local
+
+    flex vol=0.5
+    flex min=8.0
+    flex max=12.0
+end
+
+code
+    user0:
+        if (!bPlaying)
+        {
+            bPlaying = 1;
+            sndChnl = PlaySoundThing(ambientSound, ambientPos, vol, min, max, 0x91); # 0x91 - loop | fadein | thing pos
+        }
+    return;
+
+    user1:
+        if (bPlaying)
+        {
+            bPlaying = 0;
+            ChangeSoundVol(sndChnl, 0.0, 3);
+        }
+    return;
+
+    entered:
+        if((GetSenderRef() == startAmbient)) {
+            call user0;
+        }
+
+        if((GetSenderRef() == stopAmbient) && (bPlaying == 1))
+        {
+            bPlaying = 0;
+            StopSound(sndChnl, 0.0);
+        }
+    return;
+end
+

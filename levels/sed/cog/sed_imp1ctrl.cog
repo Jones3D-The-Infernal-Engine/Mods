@@ -1,0 +1,168 @@
+symbols
+
+#....................MESSAGES......................
+	message	startup
+    message	crossed
+    message	Timer
+    message	activated
+
+#....................ACTORS......................
+	thing		player									local
+	thing		indyActor
+
+#....................CAMERAS......................
+	thing		camPos
+
+#....................PROPS......................
+	thing		imp_part
+	thing		magicspot
+
+#....................TRIGGERS......................
+	surface		startfx0								linkID=2
+	surface		endfx0                                  linkID=3
+
+#....................VARIABLES......................
+#   global14 indicates that the imp1 was taken
+	int			took=0									local
+	int			lightup=0								local
+	int			sndrun									local
+
+	flex        rvalmin=0.0								local
+	flex        gvalmin=0.1	                            local
+	flex        bvalmin=0.0	                            local
+
+	flex        rvalmax=0.1	                            local
+	flex        gvalmax=0.8	                            local
+	flex        bvalmax=0.1                             local
+
+	flex        flickertime=2                           local
+	flex        maxradius=0.10                           local
+	flex        minradius=0.10                           local
+	flex        radius=0.0                           	local
+
+	flex		magictime=0								local
+
+#....................KEYFRAMES......................
+	keyframe	in_reach=in_activate_medium.key			local
+
+#....................TEMPLATES......................
+	template	imp_magic=imp_idlemagic					local
+
+#....................SOUNDS......................
+	sound	take_snd=sol_panel_switch_c.wav				local
+	sound	magic_loop=imp1_on_loop.wav					local
+	sound	magic_down=imp1_powerup.wav					local
+	sound	in_mystic=INXJ212.wav						local	#"..a part of the infernal machine"
+	sound	in_hmm=INXJ140.wav							local	#"..what's this?"
+
+#....................VECTORS........................
+    vector      minlite                         		local
+	vector      maxlite                         		local
+	vector      zerolite                        		local
+
+end
+
+# ========================================================================================
+
+code
+
+startup:
+
+	player = GetLocalPlayerThing();
+	minlite = VectorSet(rvalmin, gvalmin, bvalmin);
+	maxlite = VectorSet(rvalmax, gvalmax, bvalmax);
+	zerolite= VectorSet(0.0, 0.0, 0.0);
+	SetThingLight(magicspot, zerolite, radius, 0.1);
+    return;
+
+crossed:
+
+	If (took == 1) return;
+
+	If ((GetSenderID() == 2) && (GetSourceref() == player))
+    {
+		If (lightup == 1) return;
+		SetTimer(0.1);
+        ThingLightAnim(magicspot, minlite, minradius, maxlite, maxradius, 6);
+		sndrun=PlaySoundThing(magic_loop, magicspot, 0.5, 2, 8, 0x1);
+    }
+
+    If ((GetSenderID() == 3) && (GetSourceref() == player))
+    {
+		If (lightup == 0) return;
+		SetTimer(0);
+        ThingLightAnim(magicspot, zerolite, minradius, zerolite, maxradius, 0);
+		If (sndrun != -1)
+		{
+            StopSound(sndrun, 0.25);
+		}
+    }
+
+	return;
+
+activated:
+		if (getSenderRef() == imp_part)
+        {
+            # prep the actor in the player's spot
+			MakeMeStop();
+			DeselectWeaponWait(player);
+			StartCutscene(1);
+			CopyPlayerHolsters(player, indyActor);
+			CopyOrientAndPos(player, indyActor);
+			SetThingFlags(player, 0x80000);
+			ClearThingFlags(indyActor, 0x80000);
+
+			# get camera correct
+			SetExtCamOffsetToThing(camPos);
+
+			# indyActor plays keyframe and first line
+            PlayVoice(indyActor, in_hmm, 1.0, 1);
+            PlayKey(indyActor, in_reach, 4, 0x12, 0);
+			Sleep(0.5);
+
+			# wipe out the magic spot and end all fx and sound
+			DestroyThing(imp_part);
+			DestroyThing(magicspot);
+			SetTimer(0.0);
+			If (sndrun != -1)
+			{
+                StopSound(sndrun, 0.25);
+			}
+			StopSound(sndrun, 0.25);
+
+			# add imp to inventory, second line from actor
+			ChangeInv(player, 14, 1);
+			SetInvAvailable(player, 14, 1);
+			JonesInvItemChanged(14);
+			Sleep(0.25);
+            PlayVoice(indyActor, in_mystic, 1.0, 1);
+
+			# adjoin crossing no longer has any effect
+			took = 1;
+			global14 = 1; # indicate globally that imp1 was taken
+
+			# return cam and player control
+			RestoreExtCam();
+			CopyOrientAndPos(indyActor, player);
+			ClearThingFlags(player, 0x80000);
+			SetThingFlags(indyActor, 0x80000);
+			EndCutScene();
+			ClearActorFlags(player, 0x200000);
+        }
+return;
+
+
+# ........................................................................................
+Timer:
+
+CreateThing(imp_magic, magicspot);
+
+magictime=Rand();
+
+SetTimer((magictime + 1.5));
+
+return;
+# ........................................................................................
+
+end
+

@@ -1,0 +1,114 @@
+# Pulse lightning bolts from origin and zaps random up to 6 objects
+#
+# user0: starts lightning
+# user1: stops lightning
+#
+# [Crt Vavros]
+# =======================================
+
+symbols
+    message startup
+    message pulse
+    message entered
+    message exited
+    message user0
+    message user1
+
+    sector startLightning mask=0x400 # only player will send messages
+    sector endLightning   mask=0x400
+
+    thing origin  nolink
+    thing zapObj1 nolink
+    thing zapObj2 nolink
+    thing zapObj3 nolink
+    thing zapObj4 nolink
+    thing zapObj5 nolink
+    thing zapObj6 nolink
+
+    int numZapsPerPulse=2
+    float strikeFreq=0.5
+
+    sound hummSnd=aet_lightning_03.wav
+    float hummVolume=0.2
+    float hummRangeMin=10.0
+    float hummRangeMax=30.0
+
+    # local vars
+    int i            local
+    int numZapObjs=0 local
+    int bPulsing=0   local
+    int bStriking=0  local
+    int zapTrack     local
+
+    # subroutines
+    flex StartLightning=0 local
+    flex StopLightning=0 local
+end
+
+code
+    startup:
+        for (i = 0; i < 6; i = i + 1)
+        {
+            if (zapObj1[i] >= 0) {
+                numZapObjs = numZapObjs + 1;
+            }
+        }
+
+        if (numZapsPerPulse > numZapObjs) {
+            numZapsPerPulse = numZapObjs;
+        }
+    return;
+
+    user0:
+        Call StartLightning;
+    return;
+
+    user1:
+        Call StopLightning;
+    return;
+
+    pulse:
+        if (!bPulsing) return; # sanity check
+        if (bStriking) return;
+        bStriking = 1;
+
+        for (i = 0; i < numZapsPerPulse; i = i + 1)
+        {
+            if (hummVolume > 0.0) {
+                zapTrack = PlaySoundThing(hummSnd, origin, hummVolume, hummRangeMin, hummRangeMax, 0);
+            }
+            CreateLightning(origin, '0 0 0', GetThingPOS(zapObj1[RandBetween(0, numZapObjs - 1)]), 0.03, 0.03, 0.5);
+            Sleep(0.2);
+            if (hummVolume > 0.0) StopSoundThing(hummSnd, origin);
+        }
+        bStriking = 0;
+    return;
+
+    entered:
+        if (GetSenderRef() == startLightning) {
+            Call StartLightning;
+        }
+    return;
+
+    exited:
+        if (GetSenderRef() == endLightning) {
+            Call StopLightning;
+        }
+    return;
+
+    StartLightning:
+        if (!bPulsing)
+        {
+            bPulsing = 1;
+            SetPulse(strikeFreq);
+        }
+    return;
+
+    StopLightning:
+        if (bPulsing)
+        {
+            SetPulse(0);
+            bPulsing = 0;
+        }
+    return;
+end

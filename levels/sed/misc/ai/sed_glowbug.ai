@@ -1,0 +1,63 @@
+# SED level Flying Glow Bug Thingie AI
+
+alignment=-1.0, rank=0.2, maxstep=0.1, sightdist=1.0, heardist=1.0, wakeupdist=1.0
+
+#instinct            arguments
+#=======================================================================================
+
+#Listen.............1.....2.....3.....4.....5.....6.....7.....8.....9.....10................
+Listen                0.95  0     0
+#1 - % chance to become alerted
+#2 - % chance to move if alerted (otherwise, just turn and look)
+#3 - Distance to move from dangerous events
+
+
+#LookForTarget......1.....2.....3.....4.....5.....6.....7.....8.....9.....10................
+LookForTarget        2000  2000
+#1 - Interval look (msec)
+#2 - Time till sleep if not seen (msec)
+#3 - Just face target if in range\FOV (bool)
+#4 - Duration AI will hunt target (sec, default=20.  Waypoint only behavior)
+
+#Randommove.........1.....2.....3.....4.....5.....6.....7.....8.....9.....10................
+Randommove          3000  1.10  5.20  1.0   2.5   -45  1     0     0     1
+#1  - Update freq (msec)
+#2  - Min dist
+#3  - Max dist
+#4  - Min speed
+#5  - Max speed
+#6  - Anglular range relative to -(targetDir) ( [angle > 0] = add +/-exact.  [angle < 0] = add +/-random range )
+#7  - Skip updates if shooting (bool)
+#8  - Update immediately after shot (bool)
+#9  - Face move target (bool)
+#10 - Move in Z axis as well (bool, only works for non-surface movers)
+
+
+#PrimaryFire...1.....2.....3.....4.....5.....6.....7.....8.....9.....10....11....12....13....14....15....16....17....18
+PrimaryFire    5000  -1.0  0.5   0.10  0.001 200   0.5   0.0   0.0   0     0     3     0     0     0     0     1
+#1 - Ave Time between shots (msec)
+#2 - Min Fire dot (1.0 - facing, 0 - 180deg, -1.0 360deg)
+#3 - Max Dist (wont fire if further)
+#4 - Error (Error in aim 0-1)
+#5 - Min Dist (Wont fire if closer)
+#6 - Ready Time (between wake & first shot in msec)
+#7 - Lead % (0 -1)
+#8 - Use Secondary % (1.0 always)
+#9  - Burst Count (default=1,  [# < 0]=random range 1-#,  [# > 0]=#)
+#10 - Burst Interval (time between shots, msec)
+#11 - Use primary weapon only while moving
+#12 - Primary weapon number
+#13 - Distance to move after fire
+#14 - Don't fire during breakdowns
+#15 - Don't fire while moving
+#16 - While standing, don't fire if closer than
+#17 - 1 == Don't face target while firing
+
+
+#Roam...............1.....2.....3.....4.....5.....6.....7.....8.....9.....10................
+Roam                3000  -7.0   1   0
+#1 - How often pick new destination (msec)
+#2 - Max radius to move  ( [# > 0] = from home pos.  [# < 0] = from current pos )
+#3 - Move in Z axis as well (bool, only works for non-surface movers)
+#4 - Speed to move at (0=use default)
+

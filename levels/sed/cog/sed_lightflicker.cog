@@ -1,0 +1,116 @@
+# General script which simulates light (bulb) flickering by randomly setting light thing light on and off.
+# The flickering can be started by setting bActive to 1, player crossing start adjoin or sending user0 to this COG.
+# To stop flickering send message user1 to this COG or assign stop adjoin surface.
+#
+# If notify cog is set script sends message user0 with param0=1 when light on and user0 with param0=0 when light is off
+#
+# [Crt Vavros]
+#======================================================================================
+
+symbols
+    message startup
+    message timer
+    message user0
+    message user1
+    message crossed
+
+    thing light nolink
+    int bActive=0
+    surface startSurf1 linkid=1
+    surface startSurf2 linkid=1
+    surface stopSurf1  linkid=2
+    surface stopSurf2  linkid=2
+
+    float red
+    float green
+    float blue
+
+    float radius
+
+    float onMin=0.1
+    float onMax=1.0
+
+    float offMin=0.1
+    float offMax=1.0
+
+    float intensityMin=0.5
+    float intensityMax=1.0
+
+    sound buzz=sed_elbuzz.wav
+    int bSoundFx=1
+
+    cog notify=-1 # notification cog
+
+    # local vars
+    vector color  local
+    float onTime  local
+    float offTime local
+    int soundfx local
+end
+
+code
+    startup:
+        Sleep(0.01); # let's engine initializes
+        color = VectorSet(red, green, blue);
+        if (bActive) {
+            SetTimer(0.01);
+        }
+    return;
+
+    user0:
+        if (!bActive)
+        {
+            bActive=1;
+            SetTimer(0.1);
+        }
+        return;
+
+    user1:
+        if (bActive)
+        {
+            bActive=0;
+            SetTimer(0.0);
+        }
+    return;
+
+    crossed:
+        if (GetSenderID() == 1 && !bActive)
+        {
+            bActive=1;
+            SetTimer(0.1);
+        }
+        else if (GetSenderID() == 2 && bActive)
+        {
+            bActive=0;
+            SetTimer(0.0);
+        }
+    return;
+
+    timer:
+        if (!bActive) return;
+
+        # Turn on
+        onTime = onMin + (onMax - onMin) * rand(); # uniform random time select
+        SetThingLight(light, VectorScale(color, intensityMin + (intensityMax - intensityMin) * rand()), radius, 0.0);
+        if (bSoundFx) {
+            soundfx = PlaySoundThing(buzz, light, 0.3, 0, 10.0, 0x81);
+        }
+
+        if (notify != -1) {
+            SendMessageEx(notify, user0, 1, 0, 0, 0);
+        }
+        Sleep(onTime);
+
+        # Turn off
+        SetThingLight(light, '0 0 0', 0, 0.0);
+        if (bSoundFx) {
+            StopSound(soundfx, 0.2);
+        }
+
+        offTime = offMin + (offMax - offMin) * rand();
+        if (notify != -1) {
+            SendMessageEx(notify, user0, 0, 0, 0, 0);
+        }
+        SetTimer(offTime);
+    return;
+end

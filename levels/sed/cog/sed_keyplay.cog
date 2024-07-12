@@ -1,0 +1,53 @@
+# gen key play
+#
+# [Crt Vavros]
+# ==============================================================================
+
+symbols
+    message pulse
+    message crossed
+
+    thing object nolink
+    keyframe key
+
+    surface startAdjoin0 linkID=1
+    surface startAdjoin1 linkID=1
+    surface startAdjoin2 linkID=1
+    surface startAdjoin3 linkID=1
+
+    surface stopAdjoin0  linkID=2
+    surface stopAdjoin1  linkID=2
+    surface stopAdjoin2  linkID=2
+    surface stopAdjoin3  linkID=2
+
+    sound ambient0
+    sound ambient1
+
+    flex secPulse=0.0
+    flex ambientVol=1.0
+    flex ambientMinDist=3.0
+    flex ambientMaxDist=20.0
+
+    # local vars
+    int track=-1 local
+end
+
+code
+    crossed:
+        if (GetSenderID() == 1)
+        {
+            track = PlayKey(object, key, 5, 0x00, 0);
+            SetPulse(secPulse);
+        }
+        else if (GetSenderID() == 2 && track > -1)
+        {
+            StopKey(object, track, 0.0);
+            SetPulse(0.0);
+            track = -1;
+        }
+    return;
+
+    pulse:
+        PlaySoundThing(ambient0[RandBetween(0, 1)], object, ambientVol, ambientMinDist, ambientMaxDist, 0x80); # 0x80 play thing pos
+    return;
+end

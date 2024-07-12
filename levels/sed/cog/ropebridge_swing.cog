@@ -1,0 +1,46 @@
+# rope bridge wind swing
+#
+# [Crt Vavros]
+# ==============================================================================
+
+symbols
+    message startup
+    message arrived
+    message timer
+
+    thing bridge
+    flex angle=6.0
+    int  axis=0
+    flex speed=2.0
+
+    flex ambientVol=1.0
+    flex ambientMinDist=3.0
+    flex ambientMaxDist=20.0
+
+    sound ambient0=tem_bridge_b.wav local
+    sound ambient1=tem_bridge_c.wav local
+
+    int direction=1 local
+    flex swingBridge local
+end
+
+code
+    startup:
+        SetTimer(0.01);
+        return;
+
+    arrived:
+        SetTimer(0.01);
+        return;
+
+    timer:
+        call swingBridge;
+        return;
+
+    swingBridge:
+        PlaySoundThing(ambient0[RandBetween(0, 1)], bridge, ambientVol, ambientMinDist, ambientMaxDist, 0x0);
+        Rotate(bridge, angle * direction, axis, speed);
+        if (direction == 1) direction = 2;
+        direction = direction * -1;
+        return;
+end

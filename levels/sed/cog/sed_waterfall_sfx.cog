@@ -1,0 +1,129 @@
+# Waterfall sound script
+#
+# [Crt Vavros]
+#======================================================================================
+
+symbols
+    message startup
+    message entered
+    message user0
+    message user1
+    message crossed
+
+    cog finalCog
+
+    thing player   local
+    thing soundObj nolink
+
+    flex volume=0.3
+
+    sector onSec0 linkID=2
+    sector onSec1 linkID=2
+    sector onSec2 linkID=2
+    sector onSec3 linkID=2
+    sector onSec4 linkID=2
+
+    sector offSec0 linkID=3
+    sector offSec1 linkID=3
+    sector offSec2 linkID=3
+    sector offSec3 linkID=3
+
+    surface volMaxAdjoin   linkID=4
+    surface volHalfAdjoin  linkID=5
+    surface volHalfSurf1   linkID=5
+    surface volHalfSurf2   linkID=5
+    surface volHalfSurf3   linkID=5
+    surface volHalfSurf4   linkID=5
+    surface volHalfSurf5   linkID=5
+    surface volHalfSurf6   linkID=5
+    surface volHalfSurf7   linkID=5
+    surface volThirdSurf1  linkID=6
+    surface volThirdSurf2  linkID=6
+    surface volThirdSurf3  linkID=6
+    surface volThirdSurf4  linkID=6
+    surface volThirdSurf5  linkID=6
+    surface volThirdSurf6  linkID=6
+    surface volThirdSurf7  linkID=6
+    surface volThirdSurf8  linkID=6
+    surface volThirdSurf9  linkID=6
+    surface volThirdSurf10 linkID=6
+    surface volTenthSurf1  linkID=7
+    surface volTenthSurf2  linkID=7
+    surface volTenthSurf3  linkID=7
+    surface volTenthSurf4  linkID=7
+    surface volTenthSurf5  linkID=7
+
+    sound sndWaterfall=riv_h20_rapid_a.wav local
+
+    # Local vars
+    int senderID   local
+    int channel    local
+    int bPlaying=0 local
+    int curVolume  local
+end
+
+# ========================================================================================
+
+code
+    startup:
+        player=GetLocalPlayerThing();
+        curVolume = volume;
+        #sleep(9.0);
+        channel = PlaySoundThing(sndWaterfall, soundObj, curVolume, 3, 60, 0x81);
+        bPlaying = 1;
+    return;
+
+    entered:
+        senderID = GetSenderID();
+        if (senderID == 2)
+        {
+            if (GetSourceRef() != player) return;
+            if (bPlaying) return;
+            channel = PlaySoundThing(sndWaterfall, soundObj, curVolume, 3, 60, 0x81);
+            bPlaying = 1;
+        }
+        else if (senderID == 3)
+        {
+            if (GetSourceRef() != player) return;
+            if (!bPlaying) return;
+            StopSound(channel, 1.0);
+            bPlaying = 0;
+        }
+        else {
+            Call crossed;
+        }
+    return;
+
+    crossed:
+        senderID = GetSenderID();
+        if (senderID != 4 && senderID != 5 && senderID != 6 && senderID != 7) return;
+
+        curVolume = volume;
+        if (senderID == 5) {
+            curVolume = volume * 0.5;
+        }
+        else if (senderID == 6) {
+            curVolume = volume * 0.33;
+        }
+        else if (senderID == 7) {
+            curVolume = volume * 0.1;
+        }
+
+        if (bPlaying) {
+            ChangeSoundVol(channel, curVolume, 0.5);
+        }
+    return;
+
+    user0:
+        #if (GetSenderRef() != finalCog) return;
+        if (!bPlaying) return;
+        StopSound(channel, 1.0);
+        bPlaying = 0;
+    return;
+
+    user1:
+        if (bPlaying) return;
+        channel = PlaySoundThing(sndWaterfall, soundObj, curVolume, 3, 60, 0x81);
+        bPlaying = 1;
+    return;
+end

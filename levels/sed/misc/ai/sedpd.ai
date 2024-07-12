@@ -1,0 +1,18 @@
+alignment=-1.0, fov=360, sightdist=5.0, heardist=2.0, wakeupdist=2.0
+
+#instinct            arguments
+#===============    ========================================================================
+
+#Roam...............1.....2.....3.....4.....5.....6.....7.....8.....9.....10................
+Roam                6000  -10.0   0
+#1 - How often pick new destination (msec)
+#2 - Max radius to move  ( [# > 0] = from home pos.  [# < 0] = from current pos )
+#3 - Move in Z axis as well (bool, only works for non-surface movers)
+#4 - Speed to move at (0=use default)
+
+#Talk...............1.....2.....3.....4.....5.....6.....7.....8.....9.....10................
+Talk                10.0 0.8  2
+#1 - Interval between voice (sec)
+#2 - % chance of speaking (0 never, 1 always)
+#3 - Min elapsed time between sounds (sec, prevents overlap)
+

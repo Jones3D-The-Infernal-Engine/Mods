@@ -1,0 +1,32 @@
+# Script for changing thing 3D model upon receiving message user0.
+# Send user0 with param0=1 to change model or param0=0 to change model back to original.
+#
+#
+# [Crt Vavros]
+#======================================================================================
+
+symbols
+    message startup
+    message user0
+
+    thing object
+    model newModel
+
+    model origModel local
+end
+
+code
+    startup:
+        Sleep(0.01); # let's engine initializes
+        origModel = GetThingModel(object);
+    return;
+
+    user0:
+        if (GetParam(0)) {
+            SetThingModel(object, newModel);
+        }
+        else {
+            SetThingModel(object, origModel);
+        }
+    return;
+end

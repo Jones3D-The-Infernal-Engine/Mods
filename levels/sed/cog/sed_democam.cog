@@ -1,0 +1,35 @@
+symbols
+    message entered
+    surface triggerSurf mask=0x400 # only player triggers
+    surface stopSurf    mask=0x400 # only player triggers
+    thing camPos        nolink
+    float fov=60
+end
+
+code
+    entered:
+        # Move car to start pos and kick it down the ramp
+        StartCutscene(2);
+
+        if (GetSenderRef() == triggerSurf)
+        {
+            SetCameraLookInterp(2, 0);
+            SetCameraPosInterp(2, 0);
+            SetCameraFocus(2, camPos);
+            SetCameraSecondaryFocus(2, GetLocalPlayerThing());
+            Sleep(0.01);
+            SetCurrentCamera(2);
+            SetCameraFOV(80, 0, 0);
+        }
+        else
+        {
+            SetCameraPosition(1, GetThingPos(camPos));
+            SetCameraLookInterp(2, 0);
+            SetCameraPosInterp(2, 0);
+            Sleep(0.01);
+            SetCurrentCamera(1);
+        }
+        EndCutscene();
+
+    return;
+end

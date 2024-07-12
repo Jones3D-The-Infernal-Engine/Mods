@@ -1,0 +1,47 @@
+# COG Script for killing player when falling into sector(s)
+#
+# [Crt Vavros]
+# ===================================================================
+
+symbols
+    message startup
+    message entered
+
+    sound fallVoice=inxj015.wav # aaaaaaah...
+
+    sector killSector1 mask=0x400 # only player
+    sector killSector2 mask=0x400
+    sector killSector3 mask=0x400
+    sector killSector4 mask=0x400
+    sector killSector5 mask=0x400
+    sector killSector6 mask=0x400
+    sector killSector7 mask=0x400
+    sector killSector8 mask=0x400
+    sector killSector9 mask=0x400
+    sector killSector10 mask=0x400
+    sector killSector11 mask=0x400
+    sector killSector12 mask=0x400
+    sector killSector13 mask=0x400
+
+    int i local
+end
+
+code
+    startup:
+        for (i = 0; i < 13; i = i + 1)
+        {
+            if (killSector1[i] >= 0) {
+                SetSectorFlags(killSector1[i], 0x40); # 0x40 - SITHSECTOR_FALLDEATH
+            }
+        }
+
+
+    return;
+
+    entered:
+        # if not dying play fall voice
+        if (BitTest(GetThingFlags(GetLocalPlayerThing()), 0x200) == 0) { # 0x200 - SITH_TF_DYING
+            PlayVoice(GetLocalPlayerThing(), fallVoice, 1.0, 1);
+        }
+    return;
+end

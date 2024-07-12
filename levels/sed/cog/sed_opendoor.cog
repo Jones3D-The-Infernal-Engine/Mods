@@ -1,0 +1,88 @@
+# SED script for opening the doors
+#
+# user0: opens the door
+#
+# [Crt Vavros]
+#======================================================================================
+
+symbols
+    message startup
+    message activate
+    message user0
+
+    # things
+    thing player nolink local
+    thing door   mask=0x400 # only player will trigger (0x400)
+
+    #sounds
+    sound inNope=Inxj088.wav local # indy: nope
+
+    # keyframes
+    keyframe inLeft=in_activate_medium_left.key local
+
+    # variables
+    int bLocked=0
+    float openTime=2.0
+    float angle=-90
+
+    int bOpened=0    local
+    int inOpenAnim=0 local
+
+    # subroutines
+    flex OpenDoor=0 local
+end
+
+code
+    startup:
+        Sleep(0.01);
+        player = GetLocalPlayerThing();
+    return;
+
+    user0:
+        bLocked = 0;
+    return;
+
+    activate:
+        if (bOpened || GetSenderRef() != door || bLocked) return;
+
+        if (GetCurItem(player) > 0) {
+            PlayVoice(player, inNope, 1.0, 1);
+        }
+        else
+        {
+            if (GetCurWeapon(player) == 13) # if player has lighter out
+            {
+                MakeMeStop();
+
+                # open the door with left hand and wait for anim
+                inOpenAnim = PlayKey(player, inLeft, 4, 0x12, 0); # 0x12 - don't interpolate and no loop
+                Sleep(0.53); # sleep until indy nugges the doors (half animation)
+                call OpenDoor;
+
+                StopKey(player, inOpenAnim, 0.75); # wait for anim to finish playing
+                Sleep(0.5);
+                ClearActorFlags(player, 0x200000);# Return control to player
+            }
+            else if (GetCurWeapon(player) == 0) # normal activation
+            {
+                # wait for weapon to be put away
+                DeselectWeaponWait(player);
+                MakeMeStop();
+
+                # open the door
+                PlayMode(player, 60, 0);
+                Sleep(0.53); # sleep until indy nugges the doors (half animation)
+                call OpenDoor;
+
+                WaitMode(player, 60);
+                ClearActorFlags(player, 0x200000);# Return control to player
+            }
+        }
+    return;
+
+    OpenDoor:
+        if (bOpened) return;
+        Rotate(door, angle, 1, openTime);
+        bOpened = 1;
+    return;
+end

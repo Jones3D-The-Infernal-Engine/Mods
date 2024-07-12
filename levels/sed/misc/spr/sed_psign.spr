@@ -1,0 +1,4 @@
+# Jones 3D Sprite File
+
+#Material                    Type    Width    Height    Geo    Light    Tex Extralight(RGBA)    Xoff    Yoff    Zoff
+sed_psign.mat                 2      1.0      1.0        4       2       0  0.0 0.0 1.0 0.8     0.0     0.0      0.0

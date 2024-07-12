@@ -1,0 +1,27 @@
+# Script changes specific item amount when item is taken.
+#
+# [Crt Vavros]
+#======================================================================================
+
+symbols
+    message startup
+    message taken
+
+    int bin
+    float amount
+    thing item   mask=0x400
+
+    thing player local
+
+end
+
+code
+    startup:
+        Sleep(0.01);
+        player = GetLocalPlayerThing();
+    return;
+
+    taken:
+        ChangeInv(player, bin, amount);
+    return;
+end

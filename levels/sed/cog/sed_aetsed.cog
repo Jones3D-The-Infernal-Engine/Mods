@@ -1,0 +1,378 @@
+# SED script
+#
+# user0: teleport player to sed sector
+#
+# [Crt Vavros]
+#======================================================================================
+
+symbols
+    message startup
+    message activated
+    message user0
+
+    surface closeDoorSurf1 nolink
+    surface closeDoorSurf2 nolink
+    surface closeDoorSurf  local
+
+    thing script mask=0x400 # player only
+    thing door   mask=0x400 # player only
+
+    thing readPos     nolink
+    thing camPosSide  nolink
+    thing camPosTop   nolink
+    thing inHand      nolink
+    thing handDolly   nolink
+
+    cog doorScript
+
+    # keys
+    keyframe inSideToHips=0in_stand1_bd_4.key      local
+    keyframe inHandsOnHips=0in_stand4.key          local
+    keyframe inThinking=0in_thinking_4_4.key       local
+    keyframe inHandPointTextA=sed_inpointext_a.key local
+    keyframe inHandPointTextB=sed_inpointext_b.key local
+    keyframe inThinking=0in_thinking_4_4.key       local
+
+    # voice lines
+    sound inWontWork=inxj058.wav                 local
+
+    sound inWhatsThis=sed09j02a.wav              local
+    sound inSomeAncientScroll=sed09j02b.wav      local
+    sound inResemblesCuneiform=sed09j02c.wav     local
+    sound inMightBeAbleToRead=sed09j02d.wav      local
+
+    sound inHearkenWanderer=sed09j02e.wav        local
+    sound inEssenceWanes=sed09j02f.wav           local
+
+    sound inSacredChargeHuh=sed09j02g.wav        local
+    sound inGettingInteresting=sed09j02h.wav     local
+
+    sound inSeaOfImages=sed09j02i.wav            local
+    sound inAppendZIP=sed09j02j.wav              local
+    sound inUnlockSecrets=sed09j02k.wav          local
+
+    sound inReadsLikeInstructions=sed09j02l1.wav local
+
+    sound inFindImageZIP=sed09j02l2a.wav         local
+    sound inImageTransforms=sed09j02l2b.wav      local
+    sound inOpenChest=sed09j02l2c.wav            local
+    sound inDivineCreatorName=sed09j02l2d.wav    local
+
+    sound inScriptWantsImage=sed09j02l3.wav      local
+
+    sound inAdditionalText=sed09j02m.wav         local
+    sound inRememberWell=sed09j02n.wav           local
+
+    # music
+    sound musicStrange=mus_bab_tablettrans.wav local
+    sound musicCue=mus_nub_annubisarm.wav      local
+
+    # local vars
+    int surfNum   local
+    int nRead=0   local
+    int inTrack   local
+    int bActive=0 local
+    float cam1Fov local
+
+    vector pos local
+
+    thing player    local
+    thing indyActor local
+    thing cam1Pos   local
+    thing cam1Look  local
+
+    template indyTpl=indy_sh_actor local
+    template ghostTpl=ghost        local
+
+    # Subroutines
+    flex ReadScript=0.0        local
+    flex SetupCam2LikeCam1=0.0 local
+    flex MoveCam2ToSidePos=0.0 local
+    flex MoveCam2ToTopPos=0.0  local
+end
+
+code
+    startup:
+        Sleep(0.01);
+        player = GetLocalPlayerThing();
+        AttachThingToThingEx(inHand, handDolly, 0x8); # 0x8 - SITH_ATTACH_NOMOVE
+    return;
+
+    activated:
+        if (bActive) return;
+        bActive = 1;
+
+        if (GetCurItem(player) != 0)
+        {
+            PlayVoice(player, inWontWork, 1.0, 0);
+            return;
+        }
+
+        if (GetSenderRef() == script)
+        {
+            SendMessageEx(doorScript, user0, script, 0, 0, 0);
+            if (GetThingType(script) != 0 && BitTest(GetThingFlags(script), 0x202) == 0) {
+                Call ReadScript;
+            }
+        }
+        else if (GetSenderRef() == door) {
+            SendMessageEx(doorScript, user1, door, nRead, 0, 0);
+        }
+
+        bActive = 0;
+    return;
+
+    user0:
+        closeDoorSurf = GetParam(0);
+        surfNum = GetParam(1);
+
+        pos = GetSurfaceCenter(closeDoorSurf);
+        #DebugVector(pos, "pos");
+        #DebugVector(GetThingPos(player), "player pos");
+
+        pos = VectorSub(pos, GetThingPos(player));
+        #DebugVector(pos, "dpos");
+
+        # Teleport player to sed sec
+        closeDoorSurf = closeDoorSurf1;
+        if (surfNum == 1) {
+            closeDoorSurf = closeDoorSurf2;
+        }
+
+        pos = VectorSub(GetSurfaceCenter(closeDoorSurf), pos);
+        #DebugVector(pos, "pos");
+        SetThingPosEx(player, pos, -1);
+    return;
+
+    SetupCam2LikeCam1:
+        SetCameraFocus(2, cam1Pos);
+        SetCameraSecondaryFocus(2, cam1Look);
+        SetCameraInterpSpeed(2, 1.0); # speed is actually time
+        SetCameraPosInterp(2, 1); # enable dolly
+        SetCameraLookInterp(2, 1); # enable dolly for look
+
+        SetCurrentCamera(2);
+        SetCameraFOV(cam1Fov, 0, 0.0); # make sure the fov matches with cam1
+        Sleep(0.01);
+    return;
+
+    MoveCam2ToSidePos:
+        SetCameraFocus(2, camPosSide);
+        SetCameraSecondaryFocus(2, cam1Look);
+        SetCameraFOV(cam1Fov, 1, 1);
+    return;
+
+    MoveCam2ToTopPos:
+        SetCameraFocus(2, camPosTop);
+        SetCameraSecondaryFocus(2, script);
+        SetCameraFOV(30, 1, 1);
+    return;
+
+    ReadScript:
+        StartCutscene(2);
+        SetCameraPosInterp(2, 0); # disable dolly
+        SetCameraLookInterp(2, 0); # disable dolly
+
+        MakeMeStop(); # disables controls
+        DeselectWeaponWait(player);
+
+        # Make indy actor
+        indyActor = CreateThing(indyTpl, player);
+        CopyPlayerHolsters(player, indyActor);
+        SetThingFlags(player, 0x80000); # disable player
+        ClearThingFlags(indyActor, 0x80000); # enable actor
+        AISetCutSceneMode(indyActor);
+        AISetLookThing(indyActor, script);
+        AISetMoveThing(indyActor, readPos, 1);
+
+        cam1Pos  = CreateThing(ghostTpl, indyActor);
+        cam1Look = CreateThing(ghostTpl, indyActor);
+        cam1Fov  = GetCameraFOV();
+        MakeCamera2LikeCamera1(cam1Pos, cam1Look);
+
+        if (nRead == 0)
+        {
+            AISetCutSceneMode(inHand); # make hand no move
+            Call SetupCam2LikeCam1;
+            Call MoveCam2ToSidePos;
+            Sleep(1.3);
+
+            # Indy finds scroll script
+            inTrack = PlayKey(indyActor, inHandsOnHips, 2, 0x0, 0); # Note, must loop
+            PlayKey(indyActor, inSideToHips, 4, 0x12, 0);
+            Sleep(0.5);
+
+            # Play some music
+            PlaySoundLocal(musicStrange, 0.15, 0.0, 0x0, 0);
+
+            PlayVoice(indyActor, inWhatsThis, 1.0, 1);
+            Sleep(0.5);
+            PlayVoice(indyActor, inSomeAncientScroll, 1.0, 1);
+            Sleep(0.5);
+            PlayVoice(indyActor, inResemblesCuneiform, 1.0, 1);
+            Sleep(0.5);
+            PlayVoice(indyActor, inMightBeAbleToRead, 1.0, 1);
+            Sleep(0.5);
+
+            # Move camera to view scene top down
+            Call MoveCam2ToTopPos;
+            Sleep(2.0);
+
+            # Bring in hand
+            ClearThingFlags(inHand, 0x80000); # show hand
+            PlayKey(inHand, inHandPointTextA, 4, 0x12, 0);
+            Sleep(2.33); # wait for hand to move onto the text
+
+            # Reads the content
+            PlayVoice(indyActor, inHearkenWanderer, 1.0, 1);
+            Sleep(0.2);
+            PlayKey(inHand, inHandPointTextB, 4, 0x12, 0);
+            Sleep(1.0); # Wait for hand to move at the start of the text
+            PlayVoice(indyActor, inEssenceWanes, 1.0, 1);
+            Sleep(0.5); # wait a bit for the hand to move out of the frame
+
+            # Move hand position down
+            MoveToFrame(handDolly, 1, 2);
+
+            PlayVoice(indyActor, inSacredChargeHuh, 1.0, 1);
+            Sleep(0.1);
+            PlayVoice(indyActor, inGettingInteresting, 1.0, 0);
+            Sleep(2.7);
+
+            # Ins
+            PlayKey(inHand, inHandPointTextA, 4, 0x12, 0);
+            Sleep(2.33); # wait for hand to move onto the text
+
+            PlayVoice(indyActor, inSeaOfImages, 1.0, 1);
+            PlayKey(inHand, inHandPointTextB, 4, 0x12, 0);
+            Sleep(1.0); # Wait for hand to move at the start of the text
+            PlayVoice(indyActor, inAppendZIP, 1.0, 1);
+            Sleep(0.3);
+            PlayVoice(indyActor, inUnlockSecrets, 1.0, 0);
+            Sleep(2);
+            SetThingFlags(inHand, 0x80000); # hide hand
+
+            # Move camera back to side pos
+            SetCameraInterpSpeed(2, 1.5); # speed is actually time
+            Call MoveCam2ToSidePos;
+            Sleep(2.3);
+
+            PlaySoundLocal(musicCue, 0.15, 0.0, 0x0, 0);
+
+            # Say some thoughts
+            PlayKey(indyActor, inThinking, 4, 0x2, 0);
+            Sleep(0.8);
+            PlayVoice(indyActor, inReadsLikeInstructions, 1.0, 1);
+
+            # Say last part of script
+            Sleep(1.0);
+            PlayVoice(indyActor, inAdditionalText, 1.0, 1);
+            Sleep(0.3);
+            PlayVoice(indyActor, inRememberWell, 1.0, 1);
+            Sleep(0.5);
+
+            # End scene
+            SetCameraFocus(2, cam1Pos);
+            Sleep(0.3);
+            StopKey(indyActor, inTrack, 0.7);
+            Sleep(0.7);
+        }
+        else if (nRead >= 1 && nRead < 4)
+        {
+            Call SetupCam2LikeCam1;
+
+            # Setup actor
+            inTrack = PlayKey(indyActor, inHandsOnHips, 2, 0x0, 0); # Note, must loop
+            PlayKey(indyActor, inSideToHips, 4, 0x12, 0);
+
+            # Move camera to look top down onto the script
+            Call MoveCam2ToTopPos;
+            Sleep(1.0);
+
+            # Ins
+            # Note, Hand should be already in position
+            ClearThingFlags(inHand, 0x80000); # show hand
+            PlayKey(inHand, inHandPointTextA, 4, 0x12, 0);
+            Sleep(2.33); # wait for hand to move onto the text
+
+            PlayVoice(indyActor, inSeaOfImages, 1.0, 1);
+            PlayKey(inHand, inHandPointTextB, 4, 0x12, 0);
+            Sleep(1.0); # Wait for hand to move at the start of the text
+            PlayVoice(indyActor, inAppendZIP, 1.0, 1);
+            Sleep(0.3);
+            PlayVoice(indyActor, inUnlockSecrets, 1.0, 0);
+            Sleep(2);
+            SetThingFlags(inHand, 0x80000); # hide hand
+
+            if (nRead == 1)
+            {
+                # Move camera back to side pos
+                SetCameraInterpSpeed(2, 1.5); # speed is actually time
+                Call MoveCam2ToSidePos;
+                Sleep(2.3);
+
+                # Say some thoughts
+                PlayKey(indyActor, inThinking, 4, 0x2, 0);
+                Sleep(0.8);
+                PlayVoice(indyActor, inDivineCreatorName, 1.0, 1);
+                Sleep(1.0);
+            }
+            else
+            {
+                Sleep(2.3);
+                SetCameraFOV(cam1Fov, 1, 1);
+            }
+
+            # End scene
+            SetCameraFocus(2, cam1Pos);
+            Sleep(0.3);
+            StopKey(indyActor, inTrack, 0.7);
+            Sleep(0.7);
+        }
+        else if (nRead >= 4 && nRead < 7)
+        {
+            Call SetupCam2LikeCam1;
+            Call MoveCam2ToSidePos;
+            Sleep(1.3);
+
+            # Setup actor
+            inTrack = PlayKey(indyActor, inHandsOnHips, 2, 0x0, 0); # Note, must loop
+            PlayKey(indyActor, inSideToHips, 4, 0x12, 0);
+            Sleep(0.5);
+
+            PlayVoice(indyActor, inFindImageZIP, 1.0, 1);
+            Sleep(0.5);
+            PlayVoice(indyActor, inImageTransforms, 1.0, 1);
+            Sleep(0.5);
+            PlayVoice(indyActor, inOpenChest, 1.0, 1);
+            Sleep(0.5);
+
+            # End scene
+            SetCameraFocus(2, cam1Pos);
+            Sleep(0.3);
+            StopKey(indyActor, inTrack, 0.7);
+            Sleep(0.7);
+        }
+        else
+        {
+            Call SetupCam2LikeCam1;
+            Call MoveCam2ToSidePos;
+            Sleep(1.3);
+            PlayVoice(indyActor, inScriptWantsImage, 1.0, 1);
+            SetCameraFocus(2, cam1Pos);
+            Sleep(1.0);
+        }
+
+        SetCurrentCamera(1);
+        CopyOrientAndPos(indyActor, player);
+        SetThingFlags(indyActor, 0x80000);
+        ClearThingFlags(player, 0x80000); # show player
+
+        nRead = nRead + 1;
+        DestroyThing(indyActor);
+        DestroyThing(cam1Pos);
+        DestroyThing(cam1Look);
+        ClearActorFlags(player, 0x200000); # enable controls
+        EndCutscene();
+    return;
+end

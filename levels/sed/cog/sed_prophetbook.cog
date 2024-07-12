@@ -1,0 +1,177 @@
+# COG Script for SED level
+# Indy reads prophet book to get knowledge about portal.
+# Script notifies portal cog that user has saw portal symbol
+#
+# [Crt Vavros]
+# ===================================================================
+
+symbols
+    message startup
+    message activated
+
+    cog cogPortal nolink
+
+    keyframe in_figithat=0in_figithat_4_4.key local
+    keyframe in_thinking=0in_thinking_4_4.key local
+    keyframe in_nod=0in_nod_4_4.key           local
+    keyframe in_read=0in_read_book_med.key    local
+    keyframe in_scratch=0in_scrtch_1_1.key    local
+
+    model in_rhand_point=0in_rhandpoint.3do local
+
+    sound in_hmm=sed03j01.wav                    local # "Hmmm...., what's this....?"
+    sound in_old_book=sed03j02.wav               local
+    sound in_book_is_opened=sed03j03.wav         local
+    sound in_the_symbol=sed03j04.wav             local
+    sound in_beneath_symbol=sed03j05.wav         local
+    sound in_passage_not_complete=sed03j06a.wav  local
+    sound in_passage_reads=sed03j06b.wav         local
+    sound in_behold_symbol_of_faith=sed03j07.wav local # "Behold the symbol of faith! He who heed its call shall take a great leap into the abyss, and a path shall reveal itself."
+    sound in_not_sure=sed03j08.wav               local
+
+    sound snd_secret_found=mus_shs_womanappears.wav local
+
+    thing player local
+
+    thing indy   nolink
+    thing camera nolink
+    thing book
+
+    # Local vars
+    float FOV=64 local
+
+    int curCam        local
+    int state=0       local # 0 - firs time read, 1 - reading book again
+    int curTrack      local
+    int curChannel=0  local
+    int handMesh=0    local
+    int swapRefHand=0 local
+
+    # Subroutines
+    flex showPointHand=0 local
+    flex hidePointHand=0 local
+end
+
+# ========================================================================================
+
+code
+    startup:
+        player = GetLocalPlayerThing();
+        handMesh = GetMeshByName(indy, "inrhand");
+    return;
+
+    activated:
+        # Remember the current camera
+        curCam = GetCurrentCamera();
+
+        # Disable and hide player
+        MakeMeStop();
+        if (InEditor() == 1)
+        {
+            DeselectWeapon(player);
+            Sleep(0.5);
+        }
+        DeselectWeaponWait(player); # Note, doesn't do anything when InEditor() is true
+
+        SetThingFlags(player, 0x80000);
+        CopyPlayerHolsters(player, indy);
+
+        if (state == 0)
+        {
+            StartCutscene(2);
+
+            # Cut to cutscene camera
+            SetCameraFocus(2, camera);
+            SetCameraSecondaryFocus(2, indy);
+            SetCurrentCamera(2);
+            SetCameraFOV(80, 0, 0);
+
+            ClearThingFlags(indy, 0x80000);
+
+            AISetLookThing(indy, book);
+            Sleep(0.3);
+            PlayVoice(indy, in_hmm, 1.0, 0);
+            curTrack = PlayKey(indy, in_figithat, 4, 0x04, 0); # 0x04 = Pause on last frame
+            Sleep(2.76); # wait for track to finish
+
+            curChannel = PlayVoice(indy, in_old_book, 1.0, 0); # "It looks like some old book. Let's see...
+            PlayKey(indy, in_thinking, 4, 0x20, 0); # 0x2 = No loop
+            StopKey(indy, curTrack, 0.2); # Stop previous in_figithat track and add 0.2 sec fade-out time to prevent flickering
+            WaitForSound(curChannel);
+            Sleep(0.5);
+
+            curChannel = PlayVoice(indy, in_book_is_opened, 1.0, 0); # "The book is open to a page inscribed with an unknown symbol."
+            WaitForSound(curChannel);
+            Sleep(0.3); # wait for in_thinking track to finish
+
+            # indy reads book
+            curChannel = PlayVoice(indy, in_the_symbol, 1.0, 0); # "The symbol consists of a circle with a triangle within it."
+            call showPointHand;
+            PlayKey(indy, in_read, 0, 0x20, 0); # 0x20 = Fade-out & No loop
+            WaitForSound(curChannel);
+            PlayVoice(indy, in_beneath_symbol, 1.0, 1); # "Beneath the symbol, there appears to be a description, or... or perhaps a passage, or part of poem."
+            PlayVoice(indy, in_passage_not_complete, 1.0, 1); # "The passage is not complete but I can read this:"
+
+            curChannel = PlayVoice(indy, in_behold_symbol_of_faith, 1.0, 0);
+            Sleep(5.0);
+            PlaySoundLocal(snd_secret_found, 0.8, 0.0, 0x0, 0);
+            WaitForSound(curChannel);
+
+            call hidePointHand; # Restore indy's hand mesh
+
+            # indy scratches his back
+            Sleep(0.5);
+            curTrack = PlayKey(indy, in_scratch, 4, 0x20, 0); # 0x20 = Fade-out & No loop
+            PlayVoice(indy, in_not_sure, 1.0, 1); # "Huh.... well I don't know what would that supposed to mean, ...
+            StopKey(indy, curTrack, 0.5);
+
+            # Return control and camera to player
+            TeleportThing(player, indy); # move player to indy's position
+            SetCurrentCamera(curCam);
+            SetCameraFocus(curCam, player);
+
+            state = 1;
+            SendMessage(cogPortal, user0); # notify portal cog that indy has saw portal symbol
+        }
+        else # Check the symbol again and read the passage
+        {
+            StartCutscene(0);
+            CopyOrientAndPos(player, indy); # move indy to player's position
+            ClearThingFlags(indy, 0x80000);
+            AISetLookThing(indy, book); # rotate to book
+
+            Sleep(0.3);
+            curTrack=PlayKey(indy, in_read, 0, 0x20, 0); # 0x20 = Fade-out & No loop
+            call showPointHand;
+            PlayVoice(indy, in_the_symbol, 1.0, 1); # "The symbol consists of a circle with a triangle within it."
+            PlayVoice(indy, in_passage_reads, 1.0, 1); # "The passage is not complete but I can read this:"
+            PlayVoice(indy, in_behold_symbol_of_faith, 1.0, 1);
+            call hidePointHand; # Restore indy's hand mesh
+            StopKey(indy, curTrack, 0.5);
+            TeleportThing(player, indy); # move player to indy's position
+            Sleep(0.6);
+        }
+
+        SetThingFlags(indy, 0x80000);
+        ClearThingFlags(player, 0x80000);
+        ClearActorFlags(player, 0x200000); # 0x200000 = Disable player movement, was set with MakeMeStop()
+        EndCutscene();
+    return;
+
+    showPointHand:
+        if (swapRefHand == 0)
+        {
+            swapRefHand = SetThingMesh(indy, handMesh, in_rhand_point, 0); # Change indy's hand mesh to point at book
+        }
+    return;
+
+    hidePointHand:
+        if (swapRefHand != 0)
+        {
+            RestoreThingMesh(indy, swapRefHand); # Restore indy's hand mesh
+            swapRefHand = 0;
+        }
+    return;
+
+end
+

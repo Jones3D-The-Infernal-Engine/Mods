@@ -1,0 +1,114 @@
+symbols
+    message startup
+    message crossed
+    message pulse
+
+    int pulsetime=2
+    float dropVolume=1.0
+    float minRadius=1.0
+    float maxRadius=15.0
+
+    sound plunk0=teo_drops1_c.wav
+    sound plunk1=teo_drops2_c.wav
+    sound plunk2=teo_drops3_c.wav
+    sound plunk3=teo_drops4_c.wav
+
+    thing droppos0 nolink
+    thing droppos1 nolink
+    thing droppos2 nolink
+    thing droppos3 nolink
+
+    surface startsurf0 linkid=2 mask=0x400 # 0x400 - player
+    surface startsurf1 linkid=2 mask=0x400
+    surface startsurf2 linkid=2 mask=0x400
+    surface startsurf3 linkid=2 mask=0x400
+    surface startsurf4 linkid=2 mask=0x400
+
+    surface stopsurf0  linkid=3 mask=0x400
+    surface stopsurf1  linkid=3 mask=0x400
+    surface stopsurf2  linkid=3 mask=0x400
+    surface stopsurf3  linkid=3 mask=0x400
+    surface stopsurf4  linkid=3 mask=0x400
+
+    # Local variables
+    thing player  local
+    thing droplet nolink local
+
+    template waterrings=+ripples local
+
+    vector smallvec local
+    vector largevec local
+
+    float dropFreq local
+
+    int dropchannel   local
+    int check         local
+    int bSwimming=0   local
+    int bUnderwater=0 local
+end
+
+code
+    startup:
+        player   = GetLocalPlayerThing();
+        smallvec = VectorSet(0.01, 0.01, 1);
+        largevec = VectorSet(0.3, 0.3, 0);
+    return;
+
+    crossed:
+        if (GetSenderID() == 2)
+        {
+            Print("Start droplet effect");
+            check = 1;
+            SetPulse(pulsetime);
+        }
+        else if (GetSenderID() == 3)
+        {
+            Print("Stop droplet effect");
+            SetPulse(0);
+            StopSound(dropchannel, 1);
+        }
+    return;
+
+    pulse:
+        bSwimming   = BitTest(GetThingFlags(player), 0x2000000);
+        bUnderwater = bSwimming && !BitTest(GetPhysicsFlags(player), 0x100000);
+
+        dropFreq = Rand();
+        if (dropFreq < 0.16)
+        {
+            droplet = CreateThing(waterrings, droppos0);
+            AnimateSpriteSize(droplet, smallvec, largevec, 2);
+            if (!bUnderwater) {
+                dropchannel = PlaySoundThing(plunk0, droplet, dropVolume, minRadius, maxRadius, 0x0);
+            }
+        }
+
+        if ((dropFreq > 0.16) && (dropFreq < 0.32))
+        {
+            droplet = CreateThing(waterrings, droppos1);
+            AnimateSpriteSize(droplet, smallvec, largevec, 2);
+            if (!bUnderwater) {
+                dropchannel = PlaySoundThing(plunk0, droplet, dropVolume, minRadius, maxRadius, 0x0);
+            }
+        }
+
+        if ((dropFreq > 0.32) && (dropFreq < 0.48))
+        {
+            droplet = CreateThing(waterrings, droppos2);
+            AnimateSpriteSize(droplet, smallvec, largevec, 2);
+            if (!bUnderwater) {
+                dropchannel = PlaySoundThing(plunk0, droplet, dropVolume, minRadius, maxRadius, 0x0);
+            }
+        }
+
+        if ((dropFreq > 0.48) && (dropFreq < 0.64))
+        {
+            droplet = CreateThing(waterrings, droppos3);
+            AnimateSpriteSize(droplet, smallvec, largevec, 2);
+            if (!bUnderwater) {
+                dropchannel = PlaySoundThing(plunk0, droplet, dropVolume, minRadius, maxRadius, 0x0);
+            }
+        }
+
+    return;
+end

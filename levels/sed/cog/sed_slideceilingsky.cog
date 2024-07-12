@@ -1,0 +1,31 @@
+# Script for slide ceiling sky in 2 directions.
+# user0 will select 2nd direction
+#
+# [Crt Vavros]
+#======================================================================================
+
+symbols
+    message startup
+    message user0
+
+    float x1=10.0
+    float y1=10.0
+
+    float x2=5.0
+    float y2=5.0
+
+    int animId local
+end
+
+code
+    startup:
+        animId = SlideCeilingSky(x1, y1);
+    return;
+
+    user0:
+        StopAnim(animId);
+        Sleep(0.1);
+        SlideCeilingSky(x2, y2);
+    return;
+end
+

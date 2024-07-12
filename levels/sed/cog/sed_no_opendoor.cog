@@ -1,0 +1,43 @@
+symbols
+    message startup
+    message activated
+
+    cog doortalkcog
+
+    thing player local
+    thing door mask=0x400 # player
+    int forceLine = -1
+
+    sound sndDoorFx=bab_door_metal_stop.wav local
+end
+
+code
+    startup:
+        player = GetLocalPlayerThing();
+    return;
+
+    activated:
+        MakeMeStop(player); # disable player controls and stuff
+        PlayMode(player, 60, 0); # play activate puppet mode
+
+        Sleep(0.6); # wait for indy arm to reach out to door
+        PlaySoundLocal(sndDoorFx, 1.0, 0.0, 0, 0); # play door sound fx
+
+        # Now, say door won't open
+        Sleep(0.5);
+        if (forceLine < 0) {
+            SendMessageEx(doortalkcog, user5, player, 0, 0, 0); # user5 = won't open talk
+        }
+        else {
+            SendMessageEx(doortalkcog, user5, player, 1, forceLine, 0); # user5 = won't open talk
+        }
+
+        WaitMode(player, 60);
+        ClearActorFlags(player, 0x200000); # clear disabled flag
+
+        # wait for doortalkcog to finish
+        while (global15 == 0) {
+            Sleep(0.01); # wait for line to finish
+        }
+    return;
+end

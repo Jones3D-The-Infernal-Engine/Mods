@@ -1,0 +1,144 @@
+# COG Script for changing surface(s) material
+#
+# user0 - change material to newMat
+# user1 - restor to original
+
+# [Crt Vavros]
+# ===================================================================
+
+symbols
+    message startup
+    message user0
+
+    material newMat
+
+    surface surf0 nolink
+    surface surf1 nolink
+    surface surf2 nolink
+    surface surf3 nolink
+    surface surf4 nolink
+    surface surf5 nolink
+    surface surf6 nolink
+    surface surf7 nolink
+    surface surf8 nolink
+    surface surf9 nolink
+    surface surf10 nolink
+    surface surf11 nolink
+    surface surf12 nolink
+    surface surf13 nolink
+    surface surf14 nolink
+    surface surf15 nolink
+    surface surf16 nolink
+    surface surf17 nolink
+    surface surf18 nolink
+    surface surf19 nolink
+    surface surf20 nolink
+    surface surf21 nolink
+    surface surf22 nolink
+    surface surf23 nolink
+    surface surf24 nolink
+    surface surf25 nolink
+    surface surf26 nolink
+    surface surf27 nolink
+    surface surf28 nolink
+    surface surf29 nolink
+    surface surf30 nolink
+    surface surf31 nolink
+    surface surf32 nolink
+    surface surf33 nolink
+    surface surf34 nolink
+    surface surf35 nolink
+    surface surf36 nolink
+    surface surf37 nolink
+    surface surf38 nolink
+    surface surf39 nolink
+    surface surf40 nolink
+    surface surf41 nolink
+    surface surf42 nolink
+    surface surf43 nolink
+    surface surf44 nolink
+    surface surf45 nolink
+    surface surf46 nolink
+    surface surf47 nolink
+    surface surf48 nolink
+    surface surf49 nolink
+    surface surf50 nolink
+    surface surf51 nolink
+    surface surf52 nolink
+    surface surf53 nolink
+    surface surf54 nolink
+    surface surf55 nolink
+    surface surf56 nolink
+    surface surf57 nolink
+    surface surf58 nolink
+    surface surf59 nolink
+    surface surf60 nolink
+    surface surf61 nolink
+    surface surf62 nolink
+    surface surf63 nolink
+    surface surf64 nolink
+    surface surf65 nolink
+    surface surf66 nolink
+    surface surf67 nolink
+    surface surf68 nolink
+    surface surf69 nolink
+    surface surf70 nolink
+    surface surf71 nolink
+    surface surf72 nolink
+    surface surf73 nolink
+    surface surf74 nolink
+    surface surf75 nolink
+    surface surf76 nolink
+    surface surf77 nolink
+    surface surf78 nolink
+    surface surf79 nolink
+    surface surf80 nolink
+    surface surf81 nolink
+    surface surf82 nolink
+    surface surf83 nolink
+    surface surf84 nolink
+    surface surf85 nolink
+    surface surf86 nolink
+    surface surf87 nolink
+    surface surf88 nolink
+    surface surf89 nolink
+    surface surf90 nolink
+    surface surf91 nolink
+    surface surf92 nolink
+    surface surf93 nolink
+    surface surf94 nolink
+    surface surf95 nolink
+    surface surf96 nolink
+    surface surf97 nolink
+    surface surf98 nolink
+    surface surf99 nolink
+    surface surf100 nolink
+    surface surf101 nolink
+    surface surf102 nolink
+    surface surf103 nolink
+    surface surf104 nolink
+
+    # local Vavros
+    int numSurfs     local
+    int i            local
+    int bChanged=0   local
+end
+
+code
+    startup:
+        for (numSurfs = 0; numSurfs < 105 && surf0[numSurfs] != -1; numSurfs = numSurfs + 1) {
+        }
+    return;
+
+    user0:
+        if (!bChanged)
+        {
+            for (i = 0; i < numSurfs; i = i + 1 ) {
+                SetSurfaceMat(surf0[i], newMat);
+            }
+            bChanged = 1;
+        }
+    return;
+
+end
+

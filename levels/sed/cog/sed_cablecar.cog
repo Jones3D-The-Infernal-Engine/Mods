@@ -1,0 +1,430 @@
+# SED cable car logic script
+#
+# [Crt Vavros]
+# ==============================================================================
+
+symbols
+    message startup
+    message activated
+    message arrived
+    message entered
+    message exited
+    message touched
+    message user0 # enables and calls cable car
+
+    thing indyActor         nolink local
+    thing exitPoint0        nolink
+    thing exitPoint1        nolink
+
+    thing carrier           mask=0x1   # only system sends arrived message
+    thing cablecar          mask=0x400 # only player
+    thing pivotrack         nolink
+    thing pullCableStart    nolink
+    thing pullCableEnd      nolink
+
+    thing button0           linkID=1 mask=0x400 # only player can activate
+    thing button1           linkID=1 mask=0x400
+
+    thing mineDoorL         nolink
+    thing mineDoorR         nolink
+
+    thing mineDoorsTrigger0 linkID=2 mask=0x80 # 0x80 only cog thing will trigger (carrier)
+    thing mineDoorsTrigger1 linkID=2 mask=0x80
+
+    thing brakeTrigger0     linkID=3 mask=0x80
+    thing brakeTrigger1     linkID=3 mask=0x80
+
+    # cutscene cameras
+    thing cscam1 nolink
+    thing cscam2 nolink
+    thing cscam3 nolink
+    thing cscam4 nolink
+
+    thing player     local
+    thing pressedBtn local
+    thing exitPos    local
+    thing pullCable  local
+
+    template indyActorTpl=indy_sh_actor local
+
+    keyframe keyBtnPressed=sed_tram_plat_btn_pressed.key local
+    keyframe keyDoorClose=sed_cable_car_door_close.key   local
+    keyframe keyCarRockFwd=sed_cable_car_rock_fwd.key    local
+    keyframe keyCarRockBwd=sed_cable_car_rock_bwd.key    local
+    keyframe keyIndyCarRock=sed_indy_cc_rock.key         local
+
+    sound sndBtnPress=gen_wood_button.wav              local
+    sound sndDoorMove=riv_door_wood_slide.wav          local
+    sound sndDoorLock=shs_door_double_stop.wav         local
+    sound sndCarMove=vol_funicular_zip.wav             local
+    sound sndCarCreak1=jep_sus_crk_1.wav               local
+    sound sndCarCreak2=jep_sus_crk_2.wav               local
+    sound sndCarStop=nub_croc_stop_c.wav               local
+    sound sndMineDoorOpen=sol_cardoor_open_c.wav       local
+    sound sndMineDoorClose=sol_cardoor_close_c.wav     local
+    sound sndWindingWheel=sed_winding_wheel.wav        local
+
+    sound inDidntDoAnything=sedxj03.wav local
+
+    material matCable=obj_vol_wire_tram.mat local
+
+    int bDisable=1         local
+    int bInCar=0           local
+    int bCarRocking=0      local
+    int pressedBtnTrack=-1 local
+    int carDoorTrack=-1    local
+    int surfNum=0          local
+    int numSurfs=5         local
+    int moveFrame          local
+    int bMineDoorsOpen=0   local
+    int carSndChannel      local
+    int wheelSndChannel    local
+
+    float yaw               local
+    float mineDoorSpeed=1.5 local
+
+    # car speed
+    float minSpeed=1      local
+    float maxSpeed=6      local
+    float accSpeed=1.10   local
+    float decelSpeed=0.85 local
+    float speed           local
+
+    # subroutines
+    flex ToggleCarDoors=0 local
+    flex MoveCableCar=0   local
+    flex OpenMineDoors=0  local
+    flex CloseMineDoors=0 local
+end
+
+code
+    startup:
+        Sleep(.25); # let's wait for system to initialize a bit
+
+        # Get the player
+        player = GetLocalPlayerThing();
+
+        # Setup the cable car
+        AttachThingToThingEx(pivotrack, carrier, 0xC); # ATTACH_NOMOVE | ATTACH_THING
+        AttachThingToThingEx(cablecar, carrier,  0xC); # ATTACH_NOMOVE | ATTACH_THING
+
+        # make sure COG triggers are movable so the touch event with carrier can be triggered
+        SetThingFlags(mineDoorsTrigger0, 0x40000000); # SITH_TF_MOVABLE
+        SetThingFlags(mineDoorsTrigger1, 0x40000000);
+        SetThingFlags(brakeTrigger0, 0x40000000);
+        SetThingFlags(brakeTrigger1, 0x40000000);
+
+        # Create pull cable
+        CreatePolylineThing(pullCableEnd, pullCableStart, '0 0 0', matCable, 0.002, 0.0045, 0.0);
+        pullCable = CreatePolylineThing(pullCableStart, pullCableEnd, '0 0 0', matCable, 0.002, 0.0045, 0.0);
+        AttachThingToThing(pullCableStart, carrier);
+        AttachThingToThing(pullCable, carrier);
+
+        Sleep(0.5); # let's wait for system to initialize a bit
+
+        # move cable car to initial position
+        Call ToggleCarDoors;
+        Call MoveCableCar;
+    return;
+
+    user0:
+        bDisable = 0;
+        moveFrame = !moveFrame; # switch frame
+        MoveToFrame(carrier, moveFrame, maxSpeed + 1);
+        carDoorTrack    = PlayKey(cablecar, keyDoorClose, 4, 0x04, 0); # close car doors
+        carSndChannel   = PlaySoundThing(sndCarMove, cablecar, 0.15, 6, 26, 0x81);
+        wheelSndChannel = PlaySoundThing(sndWindingWheel, pullCableEnd, 1.0, 40, 80, 0x81);
+    return;
+
+    activated:
+        if (GetSenderID() == 1) # one of the buttons was pressed
+        {
+            # Check if player is near the button and facing it
+            pressedBtn = GetSenderRef();
+            if (VectorDist(GetThingPos(player), GetThingPos(pressedBtn)) > 0.10) return;
+
+            yaw = VectorDot(GetThingLVec(player), GetThingLVec(pressedBtn));
+            # 41 deg > degree < -41 deg
+            if ((yaw > 0.71) || (yaw < -0.71)) return;
+
+            DeselectWeapon(player);
+            DeselectWeaponWait(player);
+
+            if (bInCar)
+            {
+                # Start cutscene of player riding the cable car
+                MakeMeStop();
+                StartCutscene(2);
+
+                indyActor = CreateThing(indyActorTpl, player);
+                CopyPlayerHolsters(player, indyActor);
+                CopyOrientAndPos(player, indyActor);
+                SetThingFlags(player, 0x80000);      # hide player
+                ClearThingFlags(indyActor, 0x80000); # show indy actor
+                SetCameraFocus(1, indyActor);
+
+                # Push button
+                AISetLookThingEyeLevel(indyActor, pressedBtn);
+                PlayMode(indyActor, 60, 0); # 60 - activate
+                Sleep(0.3);
+
+                PlaySoundLocal(sndBtnPress, 1, 0, 0, 0);
+                pressedBtnTrack = PlayKey(pressedBtn, keyBtnPressed, 4, 0x04, 0);
+                Sleep(0.5);
+
+                # Move actor into position
+                AISetCutsceneMode(indyActor);
+                AISetMoveSpeed(indyActor, 0.8);
+                AISetLookThingEyeLevel(indyActor, mineDoorL);
+                AISetMovePos(indyActor, GetThingPos(cablecar), 1);
+                AttachThingToThingEx(indyActor, carrier,  0xC); # ATTACH_NOMOVE | ATTACH_THING
+
+                # Close doors
+                Call ToggleCarDoors;
+
+                # Set car move frame, exit point and camera
+                if (pressedBtn == button0)
+                {
+                    exitPos = exitPoint1;
+                    SetCameraFocus(2, cscam1);
+                }
+                else
+                {
+                    exitPos = exitPoint0;
+                    SetCameraFocus(2, cscam2);
+                }
+
+                SetThingAlpha(indyActor, 1.0); # make sure actor is visible in case ext cam hide it
+                SetCameraSecondaryFocus(2, indyActor);
+                SetCurrentCamera(2);
+                SetCameraFOV(75, 0, 0);
+                Sleep(0.1);
+
+                StopKey(pressedBtn, pressedBtnTrack, 0.7);
+
+                # Accelerate cable car
+                Call MoveCableCar;
+            }
+            else if (bDisable)
+            {
+                # press button when cable car is not working yet
+                MakeMeStop();
+                PlayMode(player, 60, 0); # 60 - activate
+                Sleep(0.3);
+
+                PlaySoundLocal(sndBtnPress, 1, 0, 0, 0);
+                pressedBtnTrack = PlayKey(pressedBtn, keyBtnPressed, 4, 0x04, 0);
+                Sleep(0.7);
+                StopKey(pressedBtn, pressedBtnTrack, 0.7);
+                Sleep(0.7);
+
+                if (bDisable == 1)
+                {
+                    PlayVoice(player, inDidntDoAnything, 1, 0);
+                    bDisable = 2; # cache to make indy say it only once
+                }
+
+                ClearActorFlags(player, 0x200000); # SITH_AF_CONTROLSDISABLED
+            }
+        }
+    return;
+
+    arrived:
+        if (GetSenderRef() != carrier) return;
+
+        # Play stop sound and rock the car
+        StopSoundThing(sndCarMove, cablecar);
+        PlaySoundThing(sndCarStop, cablecar, 1, 3, 20, 0x0);
+
+        if (bInCar)
+        {
+            # Attach actor to cable car so it doesn't jumps when detaching
+            AttachThingToThingEx(indyActor, cablecar,  0xC); # ATTACH_NOMOVE | ATTACH_THING;
+            PlayKey(indyActor, keyIndyCarRock, 6, 0x20, 0); # rock actor with cable car
+        }
+
+        if (moveFrame == 1) {
+            PlayKey(cablecar, keyCarRockBwd, 6, 0x20, 1);
+        }
+        else {
+            PlayKey(cablecar, keyCarRockFwd, 6, 0x20, 1);
+        }
+
+        ChangeSoundPitch(wheelSndChannel, 0.01, 6.0);
+        StopSound(wheelSndChannel, 6.0);
+        Sleep(0.5);
+
+        # Detach actor from cable car
+        if (bInCar)
+        {
+            DetachThing(indyActor);
+            AISetLookThingEyeLevel(indyActor, exitPos);
+        }
+
+        # open car doors
+        Call ToggleCarDoors;
+
+        # Move actor to exit point and restore player
+        if (bInCar)
+        {
+            AISetMoveThing(indyActor, exitPos, 1);
+            Sleep(0.1);
+
+            TeleportThing(player, indyActor);
+            ClearActorFlags(player, 0x200000); # SITH_AF_CONTROLSDISABLED
+            ClearThingFlags(player, 0x80000);  # show player
+
+            # Destroy actor
+            SetThingFlags(indyActor, 0x80000);
+            DestroyThing(indyActor);
+
+            SetCameraFocus(1, player);
+            SetCameraPosition(1, GetThingPos(GetPrimaryFocus(2))); # move ext cam to cam 2 pos
+            SetCurrentCamera(1);
+            EndCutscene();
+        }
+    return;
+
+    entered:
+        if (GetSenderRef() == cablecar)
+        {
+            bInCar = 1;
+        }
+    return;
+
+    exited:
+        If (GetSenderRef() == cablecar)
+        {
+            bInCar = 0;
+        }
+    return;
+
+    touched:
+        if (GetSenderID() != 2 && GetSenderID() != 3) return;
+
+         # This is hack to allow carrier to pass on, otherwise it will get stuck by the touched cog thing
+        ClearThingFlags(GetSenderRef(), 0x40000000); # SITH_TF_MOVABLE
+
+        if (GetSenderID() == 2) # door trigger
+        {
+            if (bMineDoorsOpen == 0)
+            {
+                Call OpenMineDoors;
+                if (bInCar && moveFrame == 0)
+                {
+                    Sleep(0.5);
+                    SetCameraFocus(2, cscam1);
+                }
+            }
+            else
+            {
+                if (bInCar && moveFrame == 1) {
+                    SetCameraFocus(2, cscam2);
+                }
+                Call CloseMineDoors;
+            }
+        }
+        else # brake trigger
+        {
+            if ((GetSenderRef() == brakeTrigger0 && moveFrame == 0) || (GetSenderRef() == brakeTrigger1 && moveFrame == 1))
+            {
+                Print("sed_cablecar.cog: triggered car braking ...");
+                ChangeSoundPitch(carSndChannel, 0.45, ((speed / decelSpeed) * 0.3) * 2);
+                ChangeSoundPitch(wheelSndChannel, 0.45, ((speed / decelSpeed) * 0.3) * 2);
+                while (speed > minSpeed)
+                {
+                    speed = speed * decelSpeed;
+                    if (speed < minSpeed) {
+                        speed = minSpeed;
+                    }
+                    MoveToFrame(carrier, moveFrame, speed);
+                    ChangeSoundVol(carSndChannel, 0.15 * (minSpeed / speed), 0.01); # There seems to be a bug in ChangeSoundVol, manual fade volume should work here
+                    ChangeSoundVol(wheelSndChannel, 1.0 * (minSpeed / speed), 0.01);
+                    Sleep(0.3);
+                }
+
+                if (bInCar)
+                {
+                    if (moveFrame == 0) {
+                        SetCameraFocus(2, cscam3);
+                    }
+                    else {
+                        SetCameraFocus(2, cscam4);
+                    }
+                }
+            }
+        }
+
+        # Restore hack
+        Sleep(0.5);
+        SetThingFlags(GetSenderRef(), 0x40000000); # SITH_TF_MOVABLE
+    return;
+
+    ToggleCarDoors:
+        if (carDoorTrack == -1) {
+            carDoorTrack = PlayKey(cablecar, keyDoorClose, 4, 0x04, 0);
+        }
+        else
+        {
+            StopKey(cablecar, carDoorTrack, 2.1);
+            carDoorTrack = -1;
+        }
+
+        PlaySoundThing(sndDoorMove, cablecar, 1, 5, 25, 0x80);
+        Sleep(2.10);
+        PlaySoundThing(sndDoorLock, cablecar, 1, 5, 25, 0x80);
+        Sleep(0.5);
+    return;
+
+    MoveCableCar:
+        moveFrame = !moveFrame; # switch frame
+
+        # Accelerate cable car
+        speed = minSpeed;
+
+        carSndChannel = PlaySoundThing(sndCarMove, cablecar, 0.15 * (speed/maxSpeed), 6, 26, 0x81);
+        ChangeSoundPitch(carSndChannel, 0.35, 0.01);
+
+        wheelSndChannel = PlaySoundThing(sndWindingWheel, pullCableEnd, 1.0 * (speed/maxSpeed), 40, 85, 0x81);
+        ChangeSoundPitch(wheelSndChannel, 0.35, 0.01);
+
+        Sleep(0.02);
+        ChangeSoundPitch(wheelSndChannel, 1, ((maxSpeed / accSpeed) * 0.3) * 2);
+        Sleep(0.25);
+        ChangeSoundPitch(carSndChannel, 1, ((maxSpeed / accSpeed) * 0.3) * 2);
+
+        while (speed < maxSpeed)
+        {
+            speed = speed * accSpeed;
+            if (speed > maxSpeed) {
+                speed = maxSpeed;
+            }
+            MoveToFrame(carrier, moveFrame, speed);
+
+            # There seems to be a bug in ChangeSoundVol, manual fade volume should work here
+            ChangeSoundVol(carSndChannel, 0.15 * (speed/maxSpeed), 0.01);
+            ChangeSoundVol(wheelSndChannel, 1.0  * (speed/maxSpeed), 0.01);
+            Sleep(0.3);
+        }
+    return;
+
+    OpenMineDoors:
+        if (bMineDoorsOpen == 0)
+        {
+            bMineDoorsOpen = 1;
+            MoveToFrame(mineDoorL, 1, mineDoorSpeed);
+            MoveToFrame(mineDoorR, 1, mineDoorSpeed);
+            PlaySoundThing(sndMineDoorOpen, mineDoorL, 0.5, -1, -1, 0x80); # 0x80 - pos tied to thing
+        }
+    return;
+
+    CloseMineDoors:
+        if (bMineDoorsOpen == 1)
+        {
+            bMineDoorsOpen = 0;
+            MoveToFrame(mineDoorL, 0, mineDoorSpeed);
+            MoveToFrame(mineDoorR, 0, mineDoorSpeed);
+            PlaySoundThing(sndMineDoorClose, mineDoorL, 0.5, -1, -1, 0x80); # 0x80 - pos tied to thing
+        }
+    return;
+end

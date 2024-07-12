@@ -1,0 +1,142 @@
+# [Crt Vavros]
+#======================================================================================
+symbols
+    message startup
+    message user0
+    message user1
+
+    surface doorAdjoin nolink
+
+    thing door     local
+    thing script   local
+
+    cog doorTalk
+    cog btfwell
+
+    # Keyframes
+    keyframe inLeft=in_activate_medium_left.key local
+
+     # Indy lines
+    sound inLocked=inxj080.wav            local
+    sound inOpened=inxj103.wav            local
+    sound inWhatda=sed09j04.wav           local
+    sound inMissingCogwheel=sed09j03a.wav local
+    sound inDoorWontBudge=sed09j03b.wav   local
+    sound inCogwheelNeeded=sed09j03c.wav  local
+
+    # Sound fx
+    sound lockedDoorSfx=shs_door_double_stop.wav local
+    sound lightFire=gen_torchlitet_c.wav         local
+
+    # Music
+    sound musicCue=mus_jep_indyrescue1.wav local
+
+    # Keys
+    keyframe inArmsUp=0in_armsup_1_1.key local
+
+    # Local vars
+    int bDoorActivated=0 local
+    int inOpenAnim=-1    local
+    int bDoorOpen=0      local
+    int nScriptRead=0    local
+    int bDoorTry=0       local
+    int prevLine=-1      local
+    int curLine          local
+
+    thing player local
+    thing smoke  local
+    thing fire   local
+
+    template smokeTpl=dustcloud  local
+    template flameTpl=torchflame local
+
+    surface wellPortSurf local
+
+    vector smokeStart local
+    vector smokeEnd   local
+
+    # sub-routines
+    float OpenDoor=0 local
+end
+
+code
+    startup:
+        Sleep(0.01);
+        player = GetLocalPlayerThing();
+
+        SetFaceGeoMode(doorAdjoin, 4); # texture
+        ClearAdjoinFlags(doorAdjoin, 0x3); # clear move & visible
+    return;
+
+    user0:
+    return;
+
+    user1: # door activated via another script
+        door = GetParam(0);
+        nScriptRead = GetParam(1);
+        Call OpenDoor;
+    return;
+
+    OpenDoor:
+        # Indy activates door to outside sanctuary
+        if (bDoorActivated || bDoorOpen) return;
+        bDoorActivated = 1;
+
+        if (GetCurItem(player) != 0) # item activation
+        {
+            SendMessageEx(doorTalk, user3, player, 0, 0, 0); # wrong item talk
+            while (global15 != 0) {
+                Sleep(0.01);
+            }
+        }
+        else # empty hand activation
+        {
+            MakeMeStop();
+            if (GetCurWeapon(player) == 13) # if player has lighter out
+            {
+                # open the door with left hand and wait for anim
+                inOpenAnim = PlayKey(player, inLeft, 4, 0x12, 0); # 0x12 - don't interpolate and finish on last frame
+                Sleep(0.53); # sleep until indy nugges the doors (half animation)
+            }
+            else if (GetCurWeapon(player) == 0) { # normal activation
+                PlayMode(player, 60, 0);
+            }
+            else # return and do no action
+            {
+                ClearActorFlags(player, 0x200000);
+                bDoorActivated = 0;
+                return;
+            }
+
+            # Nugge door
+            Sleep(0.53); # sleep until indy nugges the doors (half animation)
+
+            PlaySoundLocal(lockedDoorSfx, 1, 0, 0, 0);
+            Sleep(0.5);
+            ClearActorFlags(player, 0x200000); # enable player controls
+
+            if (!bDoorTry)
+            {
+                PlayVoice(player, inLocked, 1.0, 1);
+                bDoorTry = 1;
+            }
+            else if (nScriptRead == 0 || Rand() < 0.5)
+            {
+                SendMessageEx(doorTalk, user4, player, 1, RandBetween(1, 2), 0); # locked door talk
+                while (global15 != 0) {
+                    Sleep(0.01);
+                }
+            }
+            else
+            {
+                curLine = RandBetween(0, 2);
+                while (prevLine == curLine) {
+                    curLine = RandBetween(0, 3);
+                }
+                PlayVoice(player, inMissingCogwheel[curLine], 1.0, 1);
+            }
+        }
+
+        bDoorActivated = 0;
+    return;
+end

@@ -1,0 +1,304 @@
+# SED script for changing present to past eon.
+#
+# [Crt Vavros]
+#======================================================================================
+
+symbols
+    message startup
+    message user0
+    message removed
+    message killed
+
+    cog eon2SkyCog
+    cog eon2SkySlideCog
+
+    surface eon1Adjoin1 nolink
+    surface eon1Adjoin2 nolink
+    surface eon1Adjoin3 nolink
+
+    surface eon2ClimbAdjoin1 nolink
+    surface eon2ClimbAdjoin2 nolink
+
+    sector eon2CogSec1 nolink
+
+    surface eon1CogSurf1 nolink
+    surface eon1CogSurf2 nolink
+    surface eon1CogSurf2 nolink
+
+    surface eon2CogSurf1 nolink
+    surface eon2CogSurf2 nolink
+    surface eon2CogSurf3 nolink
+    surface eon2CogSurf4 nolink
+
+    thing eon1Thing1
+    thing eon1Thing2
+    thing eon1Thing3
+    thing eon1Thing4
+    thing eon1Thing5
+    thing eon1Thing6
+    thing eon1Thing7
+    thing eon1Thing8
+    thing eon1Thing9
+    thing eon1Thing10
+    thing eon1Thing11
+    thing eon1Thing12
+    thing eon1Thing13
+    thing eon1Thing14
+    thing eon1Thing15
+    thing eon1Thing16
+    thing eon1Thing17
+    thing eon1Thing18
+    thing eon1Thing19
+    thing eon1Thing20
+    thing eon1Thing21
+    thing eon1Thing22
+    thing eon1Thing23
+    thing eon1Thing24
+    thing eon1Thing25
+    thing eon1Thing26
+    thing eon1Thing27
+    thing eon1Thing28
+    thing eon1Thing29
+    thing eon1Thing30
+    thing eon1Thing31
+    thing eon1Thing32
+    thing eon1Thing33
+    thing eon1Thing34
+    thing eon1Thing35
+    thing eon1Thing36
+    thing eon1Thing37
+    thing eon1Thing38
+    thing eon1Thing39
+    thing eon1Thing40
+    thing eon1Thing41
+    thing eon1Thing42
+    thing eon1Thing43
+    thing eon1Thing44
+    thing eon1Thing45
+    thing eon1Thing46
+    thing eon1Thing47
+    thing eon1Thing48
+    thing eon1Thing49
+    thing eon1Thing50
+    thing eon1Thing51
+    thing eon1Thing52
+    thing eon1Thing53
+    thing eon1Thing54
+    thing eon1Thing55
+    thing eon1Thing56
+    thing eon1Thing57
+    thing eon1Thing58
+    thing eon1Thing59
+    thing eon1Thing60
+    thing eon1Thing61
+    thing eon1Thing62
+    thing eon1Thing63
+    thing eon1Thing64
+    thing eon1Thing65
+    thing eon1Thing66
+    thing eon1Thing67
+    thing eon1Thing68
+    thing eon1Thing69
+    thing eon1Thing70
+    thing eon1Thing71
+    thing eon1Thing72
+    thing eon1Thing73
+    thing eon1Thing74
+    thing eon1Thing75
+    thing eon1Thing76
+    thing eon1Thing77
+    thing eon1Thing78
+    thing eon1Thing79
+    thing eon1Thing80
+    thing eon1Thing81
+    thing eon1Thing82
+    thing eon1Thing83
+    thing eon1Thing84
+    thing eon1Thing85
+    thing eon1Thing86
+    thing eon1Thing87
+    thing eon1Thing88
+    thing eon1Thing89
+    thing eon1Thing90
+    thing eon1Thing91
+    thing eon1Thing92
+    thing eon1Thing93
+    thing eon1Thing94
+    thing eon1Thing95
+    thing eon1Thing96
+    thing eon1Thing97
+    thing eon1Thing98
+    thing eon1Thing99
+    thing eon1Thing100
+    thing eon1Thing101
+
+    thing eon2Thing1 nolink
+    thing eon2Thing2 nolink
+    thing eon2Thing3 nolink
+    thing eon2Thing4 nolink
+    thing eon2Thing5 nolink
+    thing eon2Thing6 nolink
+    thing eon2Thing7 nolink
+    thing eon2Thing8 nolink
+    thing eon2Thing9 nolink
+    thing eon2Thing10 nolink
+    thing eon2Thing11 nolink
+    thing eon2Thing12 nolink
+    thing eon2Thing13 nolink
+    thing eon2Thing14 nolink
+    thing eon2Thing15 nolink
+    thing eon2Thing16 nolink
+    thing eon2Thing17 nolink
+    thing eon2Thing18 nolink
+    thing eon2Thing19 nolink
+    thing eon2Thing20 nolink
+    thing eon2Thing21 nolink
+    thing eon2Thing22 nolink
+    thing eon2Thing23 nolink
+    thing eon2Thing24 nolink
+    thing eon2Thing25 nolink
+    thing eon2Thing26 nolink
+    thing eon2Thing27 nolink
+    thing eon2Thing28 nolink
+    thing eon2Thing29 nolink
+    thing eon2Thing30 nolink
+    thing eon2Thing31 nolink
+    thing eon2Thing32 nolink
+    thing eon2Thing33 nolink
+    thing eon2Thing34 nolink
+    thing eon2Thing35 nolink
+    thing eon2Thing36 nolink
+    thing eon2Thing37 nolink
+    thing eon2Thing38 nolink
+    thing eon2Thing39 nolink
+    thing eon2Thing40 nolink
+    thing eon2Thing41 nolink
+    thing eon2Thing42 nolink
+    thing eon2Thing43 nolink
+    thing eon2Thing44 nolink
+    thing eon2Thing45 nolink
+    thing eon2Thing46 nolink
+    thing eon2Thing47 nolink
+    thing eon2Thing48 nolink
+    thing eon2Thing49 nolink
+    thing eon2Thing50 nolink
+    thing eon2Thing51 nolink
+    thing eon2Thing52 nolink
+    thing eon2Thing53 nolink
+    thing eon2Thing54 nolink
+    thing eon2Thing55 nolink
+
+    # materials
+    material jeepTopMat=pyr_jeep_top.mat  local
+    material jeepBotMat=pyr_jeep_bbmp.mat local
+
+    # local vars
+    int i                     local
+    int numEon1Adjoins=3      local
+    int numEon2ClimbAdjoins=2 local
+    int numEon2CogSecs=1      local
+    int numEon1CogSurfs=3     local
+    int numEon2CogSurfs=4     local
+    int numEon1Things=101     local
+    int numEon2Things=55      local
+    int bEon2=0               local
+end
+
+code
+    startup:
+        Sleep(0.1); # Let engine initializes a bit
+
+        # Hide eon 2 climb adjoins
+        for (i = 0; i < numEon2ClimbAdjoins; i = i + 1)
+        {
+            ClearSurfaceFlags(eon2ClimbAdjoin1[i], 0x2000); # SITH_SURFACE_CLIMBABLE = 0x2000,
+            SetFaceGeoMode(eon2ClimbAdjoin1[i], 0); # not drawn
+        }
+
+        # Disable eon 2 cog triggering sectors
+        for (i = 0; i < numEon2CogSecs; i = i + 1) {
+            ClearSectorFlags(eon2CogSec1[i], 0x4); # 0x4 - SITH_SECTOR_COGLINKED
+        }
+
+        # Disable eon 2 cog triggering surfaces
+        for (i = 0; i < numEon2CogSurfs; i = i + 1) {
+            ClearSurfaceFlags(eon2CogSurf1[i], 0x2); # 0x2 - SITH_SURFACE_COGLINKED
+        }
+
+        # Disable eon 2 things
+        for (i = 0; i < numEon2Things; i = i + 1) {
+            SetThingFlags(eon2Thing1[i], 0x80000); # 0x80000- SITH_TF_DISABLED
+        }
+    return;
+
+    user0:
+        if (bEon2) return;
+        bEon2 = 1;
+        #DebugPrint("Changing to eon 2");
+
+        # Set fog
+        SetFog(1, '0.5 0.5 0.55', 0.0, 350.0);
+
+        # Change sky texture and direction
+        SendMessage(eon2SkyCog, user0);
+        SendMessage(eon2SkySlideCog, user0);
+
+        # Make eon 1 adjoin surfaces solid and non passable
+        for (i = 0; i < numEon1Adjoins; i = i + 1)
+        {
+            ClearAdjoinFlags(eon1Adjoin1[i], 0x3); # visible | move
+            SetFaceGeoMode(eon1Adjoin1[i], 4); # texture
+        }
+
+        # Show eon 2 climb adjoins
+        for (i = 0; i < numEon2ClimbAdjoins; i = i + 1)
+        {
+            SetSurfaceFlags(eon2ClimbAdjoin1[i], 0x2000); # SITH_SURFACE_CLIMBABLE = 0x2000,
+            SetFaceGeoMode(eon2ClimbAdjoin1[i], 4); # texture
+        }
+
+        # Enable eon 2 cog triggering sectors
+        for (i = 0; i < numEon2CogSecs; i = i + 1) {
+            SetSectorFlags(eon2CogSec1[i], 0x4); # 0x4 - SITH_SECTOR_COGLINKED
+        }
+
+        # Disable eon 1 cog triggering surfaces
+        for (i = 0; i < numEon1CogSurfs; i = i + 1) {
+            ClearSurfaceFlags(eon1CogSurf1[i], 0x2); # 0x2 - SITH_SURFACE_COGLINKED
+        }
+
+        # Enable eon 2 cog triggering surfaces
+        for (i = 0; i < numEon2CogSurfs; i = i + 1) {
+            SetSurfaceFlags(eon2CogSurf1[i], 0x2); # 0x2 - SITH_SURFACE_COGLINKED
+        }
+
+        # Destroy eon 1 things
+        for (i = 0; i < numEon1Things; i = i + 1)
+        {
+            if (eon1Thing1[i] != -1) {
+                DestroyThing(eon1Thing1[i]);
+            }
+        }
+
+        # Enable eon 2 things
+        for (i = 0; i < numEon2Things; i = i + 1) {
+            ClearThingFlags(eon2Thing1[i], 0x80000); # 0x80000- SITH_TF_DISABLED
+        }
+
+        # Change jeep materials to match original cyn level
+        SetMaterialCel(jeepTopMat, 1);
+        SetMaterialCel(jeepBotMat, 1);
+    return;
+
+    killed: # fallthrough
+    removed:
+        if (bEon2) return; # only eon1 is handled
+        for (i = 0; i < numEon1Things; i = i + 1)
+        {
+            if (eon1Thing1[i] == GetSenderRef()) {
+                eon1Thing1[i] = -1; # mark to not destroy on eon change
+            }
+        }
+    return;
+end
+

@@ -1,0 +1,122 @@
+# SED outdoor ambient sound script.
+#
+# [Crt Vavros]
+#======================================================================================
+
+symbols
+    message startup
+    message pulse
+    message entered
+    message user0
+    message user2
+
+    int bActive=0 desc=active_on_startup
+
+    sector startSec1 linkID=2
+    sector startSec2 linkID=2
+    sector startSec3 linkID=2
+
+    sector stopSec1 linkID=3
+    sector stopSec2 linkID=3
+    sector stopSec3 linkID=3
+
+    thing player local
+
+    sound birdSound1=gen_canyon_a2.wav   local
+    sound birdSound2=gen_canyon_a3.wav   local
+    sound birdSound3=gen_canyon_a4.wav   local # hawk
+    sound birdSound4=olv_outside_a01.wav local
+    sound birdSound5=olv_outside_a02.wav local
+    sound birdSound6=olv_outside_a04.wav local
+
+    thing sndPos1 nolink
+    thing sndPos2 nolink
+    thing sndPos3 nolink
+    thing sndPos4 nolink
+    thing sndPos5 nolink
+    thing sndPos6 nolink
+
+    # local vars
+    int curSound=1    local
+    int lastSound=0   local
+    int posIdx        local
+    int bSwimming=0   local
+    int bUnderwater=0 local
+end
+
+code
+    startup:
+        player = GetLocalPlayerThing();
+        if (bActive)
+        {
+            Sleep(18.0);
+            PlaySoundLocal(birdSound3, 1, -1, 0, 0);
+            SetPulse(15.0);
+        }
+    return;
+
+    pulse:
+        if (!bActive) return;
+
+        SetPulse(RandBetween(8, 15));
+
+        # Don't play sound if player is swimming
+        if (GetMoveStatus(player) == 12) return;
+        bSwimming   = BitTest(GetThingFlags(player), 0x2000000);
+        bUnderwater = bSwimming && !BitTest(GetPhysicsFlags(player), 0x100000); #0x100000 on water surface
+        if (bUnderwater) return;
+
+        while (curSound == lastSound) { # Choose a sound
+            curSound = RandBetween(1, 6);
+        }
+        lastSound = curSound;
+
+        # Select random position
+        posIdx = RandBetween(0, 5);
+        if (curSound == 1) {
+            PlaySoundThing(birdSound3, sndPos1[posIdx], 1, 40, 8, 0x0);
+        }
+        else if (curSound == 2) {
+            PlaySoundThing(birdSound1, sndPos1[posIdx], 1, 40, 8, 0x0);
+        }
+        else if (curSound == 3) {
+            PlaySoundThing(birdSound2, sndPos1[posIdx], 1, 40, 8, 0x0);
+        }
+        else if (curSound == 4) {
+            PlaySoundThing(birdSound4, sndPos1[posIdx], 1, 40, 8, 0x0);
+        }
+        else if (curSound == 5) {
+            PlaySoundThing(birdSound5, sndPos1[posIdx], 1, 40, 8, 0x0);
+        }
+        else if (curSound == 6) {
+            PlaySoundThing(birdSound6, sndPos1[posIdx], 1, 40, 8, 0x0);
+        }
+    return;
+
+    entered:
+        if (GetSourceRef() != player) return;
+
+        if (!bActive && GetSenderID() == 2) # start
+        {
+            SetPulse(8.0);
+            bActive = 1;
+        }
+        else if (bActive && GetSenderID() == 3) # stop
+        {
+            SetPulse(0.0);
+            bActive = 0;
+        }
+    return;
+
+    user0: # start
+        if (!bActive)
+        {
+            bActive = 1;
+            SetPulse(8.0);
+        }
+    return;
+
+    user2: # stop
+        bActive = 0;
+    return;
+end

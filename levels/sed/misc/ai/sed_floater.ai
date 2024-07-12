@@ -1,0 +1,68 @@
+# SED level Floater AI
+
+alignment=-1.0, rank=0.5, maxstep=0.2, sightdist=2.0, heardist=1.0, fov=360, accuracy=1.0
+
+#instinct            arguments
+#=======================================================================================
+
+#LookForTarget......1.....2.....3.....4.....5.....6.....7.....8.....9.....10................
+LookForTarget        500   5000
+#1 - Interval look (msec)
+#2 - Time till sleep if not seen (msec)
+#3 - Just face target if in range\FOV (bool)
+#4 - Duration AI will hunt target (sec, default=20.  Waypoint only behavior)
+
+
+#BasicFollow........1.....2.....3.....4.....5.....6.....7.....8.....9.....10................
+BasicFollow         0     0.20  0.60  0.0   0     0
+#1  - Update freq (msec, default = 1 sec)
+#2  - Min Distance to allow
+#3  - Max Dist to allow
+#4  - Max Melee dist (rifle/punch combo)
+#5  - Set to 1 to disable LOS checking (enemy doesn't need to see)
+#6  - Skip follow updates when firing (bool)
+
+
+#Randommove.........1.....2.....3.....4.....5.....6.....7.....8.....9.....10................
+Randommove          1000  1.10  7.20  1.0   3.5   -135  1     0     0     1
+#1  - Update freq (msec)
+#2  - Min dist
+#3  - Max dist
+#4  - Min speed
+#5  - Max speed
+#6  - Anglular range relative to -(targetDir) ( [angle > 0] = add +/-exact.  [angle < 0] = add +/-random range )
+#7  - Skip updates if shooting (bool)
+#8  - Update immediately after shot (bool)
+#9  - Face move target (bool)
+#10 - Move in Z axis as well (bool, only works for non-surface movers)
+
+
+#PrimaryFire...1.....2.....3.....4.....5.....6.....7.....8.....9.....10....11....12....13....14....15....16....17....18
+PrimaryFire    2500  0.50  0.70  0.5   0.01  1000  0.0   0.0   0     0     0     0     0     1     0     0     0
+#1  - Ave Time between shots (msec)
+#2  - Min Fire dot (1.0=facing, 0=180deg, -1.0=360deg)
+#3  - Max Dist (wont fire if further)
+#4  - Error (Error in aim 0-1)
+#5  - Min Dist (Wont fire if closer)
+#6  - Ready Time (between wake & first shot in msec)
+#7  - Lead % (0 -1)
+#8  - Use Secondary % (1.0 always)
+#9  - Burst Count (default=1,  [# < 0]=random range 1-#,  [# > 0]=#)
+#10 - Burst Interval (time between shots, msec)
+#11 - Whether primary weapon is to be used only while moving
+#12 - Primary weapon #
+#13 - Distance to move after fire
+#14 - Prevent AI from firing during breakdown animations
+#15 - Don't play fire animation while moving
+#16 - Min distance to fire when still.
+#17 - Don't face target unless shot is fired.
+#18 - "Dead zone" dot - don't fire if target is in this arc.
+
+
+#Roam...............1.....2.....3.....4.....5.....6.....7.....8.....9.....10................
+Roam                1000  -7.0   1   5.0
+#1 - How often pick new destination (msec)
+#2 - Max radius to move  ( [# > 0] = from home pos.  [# < 0] = from current pos )
+#3 - Move in Z axis as well (bool, only works for non-surface movers)
+#4 - Speed to move at (0=use default)
+

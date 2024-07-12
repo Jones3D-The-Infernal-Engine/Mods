@@ -1,0 +1,140 @@
+# Camera dolly
+# General script to move camera on the dolly along path.
+# The camera can move at constant speed or can accelerate/decelerate.
+#
+# The COG accepts 3 messages:
+# - user0: Moves dolly to new path frame at constant speed.
+#    param0: frame number
+#    global0: speed
+#
+# - user1: Accelerates dolly to new path frame.
+#    param0: frame number
+#    global0: speed to accelerate/decelerate to from current speed
+#    global1: acceleration
+#    global3: sleep interval between accelerations
+#
+# - user3: Sets current speed
+#    global0: new speed
+#
+# - user4: Stop movement
+#
+# COG sends arrived message to user0 & user1 sender COG and sets the global4 to end camera move speed
+#
+# [Crt Vavros]
+#======================================================================================
+
+symbols
+    message user0
+    message user1
+    message user3
+    message user4
+    message arrived
+    message timer
+
+    thing camDolly mask=0x1 # System only
+    thing camLook  nolink
+
+    # cam local vars
+    float camSpeed=5             # cam speed (MoveCam & AccMoveCam)
+    float camNewSpeed     local  # new cam speed to accelerate towards (AccMoveCam)
+    float camAcc          local  # cam move acceleration (AccMoveCam)
+    float camAccSleep     local  # sleep time between cam acceleration move (AccMoveCam)
+    int camCurGoalFrame=0 local  # cam move goal frame (MoveCam & AccMoveCam)
+    int bAccMoveCam=0     local  # marks if camera is currently acc. move (AccMoveCam)
+    int bMoving=0         local
+
+    # local vars
+    cog senderCog local
+
+    int TID_MOVECAM=1    local
+    int TID_ACCMOVECAM=2 local
+end
+
+code
+    user0:
+        if (bMoving && GetSenderRef() != senderCog) return;
+
+        senderCog       = GetSenderRef();
+        camCurGoalFrame = GetParam(0);
+        camSpeed        = global0;
+        SetTimerEx(0.00, TID_MOVECAM, 0, 0); # "async" call so we don't accidentally hit callstack limit
+    return;
+
+    user1:
+        if (bMoving && GetSenderRef() != senderCog) return;
+        bAccMoveCam     = 0; # make sure any current acceleration is stopped
+        senderCog       = GetSenderRef();
+        camCurGoalFrame = GetParam(0);
+        camNewSpeed     = global0;
+        camAcc          = global1;
+        camAccSleep     = global2;
+        SetTimerEx(0.00, TID_ACCMOVECAM, 0, 0); # "async" call so we don't accidentally hit callstack limit
+    return;
+
+    user3:
+        if (bMoving && GetSenderRef() != senderCog) return;
+        camSpeed = global0;
+    return;
+
+    user4:
+        bAccMoveCam = 0;
+        bMoving     = 0;
+        StopThing(camDolly);
+    return;
+
+    arrived:
+        if (GetSenderRef() == camDolly)
+        {
+            bAccMoveCam = 0;
+            bMoving     = 0;
+            Sleep(0.01);
+
+            global4 = camSpeed; # return camera speed
+            SendMessageEx(senderCog, arrived, GetCurFrame(camDolly), 0, 0, 0);
+        }
+    return;
+
+    timer:
+        if (GetSenderID() == TID_MOVECAM)
+        {
+            bMoving = 1;
+            MoveToFrame(camDolly, camCurGoalFrame, camSpeed);
+        }
+        else if (GetSenderID() == TID_ACCMOVECAM)
+        {
+            # Note, to make below loops asynchronous and more robust (to not hit max callstack limit)
+            # the loop should be emulated via pulse
+
+            bMoving = 1;
+            bAccMoveCam = 1;
+
+            if (camSpeed > camNewSpeed) # slow down
+            {
+                while (camSpeed > camNewSpeed && GetCurFrame(camDolly) != camCurGoalFrame && bAccMoveCam)
+                {
+                    #DebugFlex(camSpeed, "Cur acc. move cam speed: ");
+                    camSpeed = camSpeed * camAcc;
+                    if (camSpeed < camNewSpeed) {
+                        camSpeed = camNewSpeed;
+                    }
+                    MoveToFrame(camDolly, camCurGoalFrame, camSpeed);
+                    Sleep(camAccSleep);
+                }
+            }
+            else # speedup
+            {
+                while (camSpeed <= camNewSpeed && GetCurFrame(camDolly) != camCurGoalFrame && bAccMoveCam)
+                {
+                    #DebugFlex(camSpeed, "Cur acc. move cam speed: ");
+                    camSpeed = camSpeed * camAcc;
+                    if (camSpeed > camNewSpeed) {
+                        camSpeed = camNewSpeed;
+                    }
+                    MoveToFrame(camDolly, camCurGoalFrame, camSpeed);
+                    Sleep(camAccSleep);
+                }
+            }
+            bAccMoveCam = 0;
+        }
+    return;
+end

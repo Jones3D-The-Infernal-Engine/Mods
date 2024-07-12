@@ -1,0 +1,521 @@
+# SED diesel generator puzzle
+#
+# [Crt Vavros]
+# ==============================================================================
+
+symbols
+    message startup
+    message activated
+    message entered
+    message exited
+    message callback
+    message pulse
+
+    # indy actors
+    thing indyActorDiscus
+    thing indyActorChain
+    thing indyActorRefuel
+    thing indyActorLever
+
+    thing lever
+    thing chain
+    thing engine   nolink
+    thing sparkPos nolink
+    thing doorL    nolink
+    thing doorR    nolink
+
+    # camera and look things
+    thing chaincam     nolink
+    thing gascam       nolink
+    thing levercam     nolink
+    thing levercamlook nolink
+
+    # cogs
+    cog smokeFx     nolink
+    cog doorsHintCog nolink
+
+    # templates
+    template tmplRedSparks=redsparks   local
+    template tmplBlueSparks=bluesparks local
+
+    # surfaces
+    surface gasface
+    surface mineAdjoin1 nolink
+    surface mineAdjoin2 nolink
+    surface doorAdjoin1 nolink
+    surface doorAdjoin2 nolink
+
+    # music
+    sound sndSuccess=mus_gen_indy_a_theme1.wav local
+
+    # sound fx
+    sound sndChain=pyr_chain_pickup.wav          local
+    sound sndLever=nub_lever_pull_c.wav          local
+    sound sndEngineStart=dislgen_start.wav       local
+    sound sndEngineRun=dislgen_motor.wav         local
+    sound sndFillTank=jep_gascan_pour.wav        local
+    sound sndElShock=sol_fuse_shock_c.wav        local
+    sound sndDoorOpen=sol_cardoor_close_c.wav local
+
+    # keyframes
+    keyframe indypull=in_pull_lever_down.key   local
+    keyframe leverpull=gen_lever.key           local
+    keyframe enganim=sed_dieselgenerator.key   local
+    keyframe tohandsonhips=0in_stand1_bd_4.key local
+    keyframe indythink=0in_thinking_4_4.key    local
+    keyframe pourgas=0in_pourgasoline.key      local
+
+    # materials
+    material matChain=elvatr_rock_chain.mat          local
+    material matSpark1=gen_a4sprite_rbblast.mat      local
+    material matSpark2=gen_a4sprite_flash_purple.mat local
+
+    # swappable Indy hand
+    model gascanHandModel=hand_in_gascan.3do local
+
+    # indy dialogue
+    sound inelgenerator=sed02j01.wav      local
+    sound ingasandchaintorun=sed02j02.wav local
+    sound inneedsgaschain=sed02j03.wav    local
+    sound inneedsgas=sed02j04.wav         local
+    sound inneedschain=sed02j05.wav       local
+    sound inanothertry=sed02j06.wav       local
+    sound inanothertry=sed02j06.wav       local
+    sound inwhattheheck=sed02j08.wav      local
+    sound instartalready=sed02j07.wav     local
+    sound inpowertospare=pr09j04.wav      local
+    sound inthatwontwork=inxj058.wav      local
+
+    # script vars
+    thing player   local
+    thing curActor local
+
+    int bDiscussed=0       local
+    int curtrack=0         local
+    int enginestate=0      local
+    int chainBin=101       local
+    int gasCanBin=66       local
+    int curItem=0          local
+    int bCanRefuel=0       local
+    int swapRef=0          local
+    int callNum            local
+    int sndChnlEngine      local
+    int sndChnlEngineStart local
+    flex sndEngineStartLen local
+    int numStartRetries=0  local
+
+    # subroutines
+    flex startscene=0.0  local
+    flex endscene=0.0    local
+    flex fixcams=0.0     local
+    flex sayHint=0.0     local
+    flex refuel=0.0      local
+    flex applyChain=0.0  local
+    flex startEngine=0.0 local
+    flex openDoors=0.0   local
+
+    # engine state flags
+    int ENGINE_OFF=0      local
+    int ENGINE_CHAINED=1  local # chain applied
+    int ENGINE_FUELED=2   local # refueled
+    int ENGINE_READY=3    local # chained & refueled
+    int ENGINE_ON=4       local # engine running
+
+    vector levpullOffset  local
+end
+
+code
+    startup:
+        Sleep(.01);
+        player = GetLocalPlayerThing();
+        sndEngineStartLen = GetSoundLen(sndEngineStart);
+
+        levpullOffset = GetThingLVec(indyActorLever);
+
+        # Make chain invisible
+        SetThingFlags(chain, 0x10);
+
+        # Make mine adjoin surface visible
+        ClearAdjoinFlags(mineAdjoin1, 1);
+        SetFaceGeoMode(mineAdjoin1, 4);
+        ClearAdjoinFlags(mineAdjoin2, 1);
+        SetFaceGeoMode(mineAdjoin2, 4);
+
+        # make door adjoin impassable
+        ClearAdjoinFlags(doorAdjoin1, 2); # SITH_ADJOIN_MOVE
+        ClearAdjoinFlags(doorAdjoin2, 2);
+    return;
+
+    activated:
+        if (BitTest(enginestate, ENGINE_ON)) return; # exit if engine is running
+
+        curItem = GetCurItem(player);
+
+        # Refuel
+        if (bCanRefuel && curItem == gasCanBin)
+        {
+            #DebugPrint("activated: refueling");
+
+            # prepare player
+            if (MakeMeStop() == -1) return;
+            DeselectWeaponWait(player);
+
+            # Refuel amd remove can from inventory
+            Call refuel;
+            ChangeInv(player, gasCanBin, -1);
+
+            enginestate = enginestate | ENGINE_FUELED;
+            Call endscene;
+            return;
+        }
+
+        # if chain is activated and it's invisible and player is holding the chain
+        if (GetSenderRef() == chain && !BitTest(enginestate, ENGINE_CHAINED) && curItem == chainBin)
+        {
+            #DebugPrint("activated: applying chain");
+
+            # prepare player
+            if (MakeMeStop() == -1) return;
+            DeselectWeaponWait(player);
+
+            Call applyChain;
+
+            # take chain out of inventory
+            ChangeInv(player, chainBin, -1);
+
+            # update enginestate
+            enginestate = enginestate | ENGINE_CHAINED;
+
+            Call endscene;
+            return;
+        }
+
+        # if engine is activated and it's not ready to start say hint
+        if (BitTest(enginestate, ENGINE_READY) != ENGINE_READY)
+        {
+            if (curItem != 0) {
+                PlayVoice(player, inthatwontwork, 1, 1);
+            }
+            else {
+                Call sayHint;
+            }
+            return;
+        }
+
+        # Lever
+        if (GetSenderRef() == lever)
+        {
+            # prepare player
+            if (MakeMeStop() == -1) return;
+            DeselectWeaponWait(player);
+
+            curActor = indyActorLever;
+            Call startscene;
+
+            # cut to levercam
+            SetCameraFocus(2, levercam);
+            SetCameraSecondaryFocus(2, levercamlook);
+            SetCurrentCamera(2);
+            SetCameraFOV(100, 0, 0);
+
+            Call startEngine;
+            if (BitTest(enginestate, ENGINE_ON))
+            {
+                # Indy: "Now I've got power to spare"
+                PlayVoice(player, inpowertospare, 1.0, 1);
+
+                Call openDoors;
+            }
+            else
+            {
+                if (numStartRetries == 0) {
+                    PlayVoice(player, inanothertry, 1.0, 0);
+                }
+                else if (numStartRetries == 1) {
+                    PlayVoice(player, inwhattheheck, 1.0, 0);
+                }
+                else {
+                    PlayVoice(player, instartalready, 1.0, 0);
+                }
+                numStartRetries = numStartRetries + 1;
+                Sleep(0.5);
+            }
+
+            #endscene
+            Call endscene;
+        }
+    return;
+
+    startscene:
+        StartCutscene(1);
+        StopThing(player);
+        CopyOrientAndPos(player, curActor);
+        CopyPlayerHolsters(player, curActor);
+        ClearThingFlags(curActor, 0x80000);
+        SetActorFlags(player, 0x200000);
+        SetThingFlags(player, 0x80000);
+    return;
+
+    endscene:
+        Call fixcams;
+
+        CopyOrientAndPos(curActor, player);
+        SetThingFlags(curActor, 0x80000);
+        ClearThingFlags(player, 0x80000);
+        ClearActorFlags(player, 0x200000);
+
+         # Establish a camera position near Indy and prep follow-cam...
+        SetCameraPosition(1, VectorAdd(VectorTransformToOrient(player, '0.25 -0.1 0.0'), GetThingPos(player)));
+
+        SetCurrentCamera(1);
+        EndCutscene();
+
+        # when all is done, clean up
+        if (BitTest(enginestate, ENGINE_ON))
+        {
+            DestroyThing(indyActorChain);
+            DestroyThing(indyActorLever);
+            DestroyThing(indyActorDiscus);
+            DestroyThing(indyActorRefuel);
+            DestroyThing(chaincam);
+            DestroyThing(gascam);
+            DestroyThing(levercam);
+            DestroyThing(levercamlook);
+            DestroyThing(sparkPos);
+        }
+    return;
+
+    fixcams:
+        #reset camera settings
+        ResetCameraFOV(0, 0);
+        SetCameraPosInterp(2, 0);
+        SetCameraLookInterp(2, 0);
+        RestoreExtCam();
+    return;
+
+    sayHint:
+        # fix and swap player, move camera
+        StartCutscene(1);
+
+        # prepare player
+        if (MakeMeStop() == -1) return;
+        DeselectWeaponWait(player);
+
+        TeleportThing(indyActorDiscus, player);
+        AISetLookThing(indyActorDiscus, engine);
+        CopyPlayerHolsters(player, indyActorDiscus);
+        ClearThingFlags(indyActorDiscus, 0x80000);
+        SetThingFlags(player, 0x80000);
+
+        SetExtCamOffset('-0.2 -0.15 0.1');
+
+        # if chain or gas is not applied
+        if (enginestate == ENGINE_OFF && !bDiscussed)
+        {
+            PlayVoice(indyActorDiscus, inelgenerator, 1, 0);
+            Sleep(3);
+            curtrack = PlayKey(indyActorDiscus, tohandsonhips, 4, 0x12, 1);
+            PlayKey(indyActorDiscus, indythink, 4, 0x14, 0);
+            Sleep(0.8);
+            PlayVoice(indyActorDiscus, ingasandchaintorun, 1, 1);
+            StopKey(indyActorDiscus, curtrack, .5);
+            bDiscussed = 1;
+        }
+        else
+        {
+            if (!BitTest(enginestate, ENGINE_READY)) {
+                PlayVoice(indyActorDiscus, inneedsgaschain, 1, 1);
+            }
+            else if (BitTest(enginestate, ENGINE_CHAINED)) {
+                PlayVoice(indyActorDiscus, inneedsgas, 1, 1);
+            }
+            else {
+                AISetLookThing(indyActorDiscus, chain);
+                PlayVoice(player, inneedschain, 1, 1);
+            }
+        }
+
+        CopyOrientAndPos(indyActorDiscus, player);
+        Sleep(1);
+
+        SetThingFlags(indyActorDiscus, 0x80000);
+        ClearThingFlags(player, 0x80000);
+        ClearActorFlags(player, 0x200000); # enable controls
+
+        RestoreExtCam();
+        EndCutscene();
+    return;
+
+    entered:
+        if ((GetSenderRef() != gasface) || BitTest(enginestate, ENGINE_FUELED)) return;
+        bCanRefuel = 1;
+    return;
+
+    exited:
+        if (GetSenderRef() != gasface) return;
+        bCanRefuel = 0;
+    return;
+
+    refuel:
+        # Capture for callback
+        CaptureThing(indyActorRefuel);
+
+        # Fill up the gas tank
+        curActor = indyActorRefuel;
+
+        Call startscene;
+
+        # Change to gascam
+        SetCameraFocus(2, gascam);
+        SetCameraSecondaryFocus(2, indyActorRefuel);
+        SetCurrentCamera(2);
+        ResetCameraFOV(0, 0);
+
+        # Play pour animation
+        AISetLookThing(curActor, engine);
+        Sleep(.5);
+        PlayKey(curActor, pourgas, 4, 0x12, 0);
+        Sleep(1);
+        PlaySoundThing(sndFillTank, curActor, 1, -1, -1, 0);
+        Sleep(6);
+
+    return;
+
+    applyChain:
+        curActor = indyActorChain;
+        Call startscene;
+
+        # cut to chaincam
+        SetCameraFocus(2, chaincam);
+        SetCameraSecondaryFocus(2, chain);
+        SetCurrentCamera(2);
+        SetCameraFOV(100, 0, 0);
+
+        # make chain visible
+        AISetLookThing(curActor, chain);
+        Sleep(.5);
+        PlayMode(curActor, 60, 0);
+        Sleep(.5);
+        PlaySoundThing(sndChain, chain, 1, -1, -1, 0);
+        ClearThingFlags(chain, 0x10);
+    return;
+
+    callback:
+        # refuel animation callback
+        if (GetSenderRef() != indyActorRefuel) return;
+        callNum = GetParam(1);
+
+        if (callNum == 21)
+        {
+            # Put can in hand
+            swapRef = SetThingMesh(indyActorRefuel, 15, gascanHandModel, 0);
+        }
+        else if (callNum == 22)
+        {
+            # Get rid of can
+            RestoreThingMesh(indyActorRefuel, swapRef);
+            ReleaseThing(indyActorRefuel);
+        }
+
+    return;
+
+    startEngine:
+        # move indy position
+        AISetCutsceneMode(curActor);
+        AISetMoveSpeed(curActor, 0.7);
+        AISetLookThingEyeLevel(curActor, lever);
+        AISetMovePos(curActor, AIGetHomePos(curActor), 1);
+        SetThingPos(curActor, AIGetHomePos(curActor)); # make sure he's in the right place
+        AISetLookPos(curActor, VectorAdd(AIGetHomePos(curActor), levpullOffset)); # orient towards lever
+        AIWaitForStop(curActor);
+
+        #play pull lever animations
+        PlayKey(lever, leverpull, 4, 0x12, 0);
+        PlayKey(curActor, indypull, 4, 0x12, 0);
+        Sleep(1.2);
+
+        PlaySoundThing(sndLever, lever, 1, -1, -1, 0);
+        Sleep(0.5);
+        sndChnlEngineStart = PlaySoundThing(sndEngineStart, engine,  0.45, 2, -1, 0); # -1 - default min radius = 0.5 i.e.: 5m, -1 - default max radius = 2.5 i.e.: 25m, 0 - no loop
+        Sleep(0.5);
+        AISetLookThingEyeLevel(curActor, engine);
+
+        if (RandBetween(0, 9) > 7) # ~70% chance of starting the engine
+        {
+            # Failed to start the engine
+            #DebugPrint("startEngine: Failed to start the engine");
+            Sleep(RandBetween(4, sndEngineStartLen - 1)); # 3 sec to sndEngineStartLen sec
+            StopSound(sndChnlEngineStart, 0.5);
+            WaitForSound(sndChnlEngineStart);
+            return;
+        }
+
+        WaitForSound(sndChnlEngineStart);
+        SendMessage(smokeFx, user0); # start smoke
+        MaterialAnim(matChain, 60, 1);
+        PlayKey(engine, enganim, 4, 0x0, 0);
+        sndChnlEngine = PlaySoundThing(sndEngineRun, engine, 0.20, 2, 48.0, 0x81); # 2 - min radius = 0.2 i.e.: 2m, 48 - 48m (internally set to 48 * 0.1) - max radius, 0x81 - loop | pos tied to thing
+
+        # play them music on puzzle complete
+        PlaySoundLocal(sndSuccess, 1, 0, 0, 0);
+
+        # make el. spark
+        Sleep(0.2);
+        PlaySoundThing(sndElShock, sparkPos, 1, -1, -1, 0x0); # -1 - default min radius = 0.5 i.e.: 5m, -1 - default max radius = 2.5 i.e.: 25m, 0 - no loop
+        CreateThing(tmplBlueSparks, sparkPos);
+        CreateThing(tmplRedSparks, sparkPos);
+        MaterialAnim(matSpark1, 10, 1); # loop at 10fps
+        MaterialAnim(matSpark2, 10, 1);
+
+        # update enginestate
+        enginestate = enginestate | ENGINE_ON;
+
+        # Make mine adjoin surface invisible
+        SetAdjoinFlags(mineAdjoin1, 3);
+        SetFaceGeoMode(mineAdjoin1, 0);
+        SetAdjoinFlags(mineAdjoin2, 3);
+        SetFaceGeoMode(mineAdjoin2, 0);
+
+        Sleep(1);
+    return;
+
+    openDoors:
+    # #debug remove
+    #     curActor = indyActorLever;
+    #     JumpToFrame(levercam, 0, 599);
+    #     JumpToFrame(levercamlook, 0, 599);
+
+    #     JumpToFrame(doorL, 0, 758);
+    #     JumpToFrame(doorR, 0, 758);
+    #     Call startscene;
+
+    #     SetCameraFocus(2, levercam);
+    #     SetCameraSecondaryFocus(2, levercamlook);
+    #     SetCurrentCamera(2);
+    # #end
+
+        # move camera to doors
+        MoveToFrame(levercamlook, 1, 11.0);
+        Sleep(1.8);
+        MoveToFrame(levercam, 1, 9.5);
+        Sleep(1.8);
+
+        # open doors
+        MoveToFrame(doorL, 1, 0.178);
+        MoveToFrame(doorR, 1, 0.5);
+
+        Sleep(1.3);
+        PlaySoundThing(sndDoorOpen, levercamlook, 0.32, -1, 19.8, 0xA0); # 0xA0 - fade out | pos tied to thing
+
+        WaitForStop(levercam);
+        ChangeSoundVol(sndChnlEngine, 0.55, 2.8); # make generator louder
+        Sleep(2.8);
+
+        #Call endscene;
+
+        # Make door adjoin passable
+        SetAdjoinFlags(doorAdjoin1, 2); # SITH_ADJOIN_MOVE
+        SetAdjoinFlags(doorAdjoin2, 2);
+        SendMessage(doorsHintCog, user0); # disable doors hint COG
+    return;
+end

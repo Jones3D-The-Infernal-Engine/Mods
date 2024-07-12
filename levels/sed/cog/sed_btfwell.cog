@@ -1,0 +1,157 @@
+# SED script for back to the future well
+#
+# user0: starts membrane sound
+#
+# [Crt Vavros]
+#======================================================================================
+
+symbols
+    message startup
+    message entered
+    message crossed
+    message activated
+    message user0
+
+    sector wellSec
+    surface portAdjoin mask=0x400
+
+    thing membrane    nolink
+    thing indyActor   nolink
+
+    thing fader
+    thing camWellPos  nloink
+    thing camWellLook nloink
+
+    cog btfCog
+
+    # Keyframes
+    keyframe inBdFall=sed_in_bd_fall.key        local
+    keyframe inFall=sed_in_fall.key             local
+
+    # Indy lines
+    sound inFallScream=inxj015.wav local
+
+    # Music
+    sound musicEnter=mus_pyr_openpyramid.wav local
+    sound musicExit=mus_pyr_jackal1.wav    local
+
+    # Sound fx
+    sound portCrossSfx=aet_por_open.wav          local
+    sound portSndFx=aet_ring_spin.wav            local
+    sound wellFallSnd=inf_amb_loop_3.wav         local
+
+    # Local vars
+    int i = 0            local
+    int hSnd             local
+    int hMusic           local
+    int bActive=0        local
+
+    thing player local
+    surface wellPortSurf local
+end
+
+code
+    startup:
+        Sleep(0.01);
+        player = GetLocalPlayerThing();
+
+        SetThingAlpha(fader, 0.0);
+        SetThingFlags(fader, 0x80000); # disable fader
+
+        wellPortSurf = GetSurfaceAdjoin(portAdjoin); # mirror adjoin
+        SetFaceGeoMode(wellPortSurf, 0); # not drawn
+        SetAdjoinFlags(wellPortSurf, 0x3); # move & visible
+    return;
+
+    user0:
+        if (bActive) return;
+        # Start playing membrane fx
+        hSnd = PlaySoundThing(portSndFx, membrane, 0.1, 2, 15, 0x81);
+        ChangeSoundVol(hSnd, 0.9, 1.0);
+        bActive = 1;
+    return;
+
+    entered:
+        if (bActive && GetSenderRef() == wellSec && GetThingHealth(player) > 0)
+        {
+            # Player fell into time-warp well which sends him back to Canyonlands in 1947
+            StartCutscene(2);
+
+            SetThingAlpha(fader, 0.0);
+            StopSound(hMusic);
+            hMusic = PlaySoundLocal(musicExit, 0.45, 0.0, 0x0, 0);
+            hSnd = PlaySoundLocal(wellFallSnd, 0.75, 0.0, 0x1, 0); # 0x1 - SOUNDPLAY_LOOP
+
+            # Setup camera
+            SetCameraFocus(2, camWellPos);
+            SetCameraSecondaryFocus(2, camWellLook);
+
+            # Disable camera dolly mode
+            SetCameraLookInterp(2, 0);
+            SetCameraPosInterp(2, 0);
+
+            # Hide player & show actor
+            CopyPlayerHolsters(player, indyActor);
+            StopThing(player);
+            SetActorFlags(player, 0x200000); # disable controls
+            SetThingFlags(player, 0x80000); # hide player
+            PlayKey(indyActor, inFall, 12, 0x10, 0);
+            ClearThingFlags(indyActor, 0x4000); # no shadow
+            ClearThingFlags(indyActor, 0x80000); # enable
+
+            # Switch to camera 2
+            SetCurrentCamera(2);  # Switch to cam 2
+            SetCameraFOV(50, 0, 0);
+
+            SetThingAirDrag(indyActor, 1.5); # slow down indy's fall
+            PlayVoice(indyActor, inFallScream, 1.0, 0); # actor screams while falling
+
+            # Start moving camera to spot 2
+            AttachThingToThing(fader, camWellPos);
+            MoveToFrame(camWellPos, 1, 1);
+            Sleep(1.5);
+
+            # Fade-out
+            ClearThingFlags(fader, 0x80000); # enable fader
+            ThingFadeAnim(fader, 0.0, 1.0, 3, 0);
+            ChangeSoundVol(hSnd, 0.0, 3.8);
+            ChangeSoundVol(hMusic, 0.0, 6.2);
+
+            # Indy should already fall past camera view, destroy him so he doesn't hit well bottom by any chance
+            Sleep(1.0);
+            DestroyThing(indyActor);
+
+
+            # Now travel back in time
+            Sleep(6.2);
+            SendMessage(btfCog, user0); # do time travel
+
+            # Clean up
+            Sleep(5);
+            DestroyThing(fader);
+            DestroyThing(camWellLook);
+            DestroyThing(camWellPos);
+        }
+    return;
+
+    crossed:
+        if (bActive && GetSenderRef() == portAdjoin)
+        {
+            # Crossed portal to alternative pyr like location
+            hMusic = PlaySoundLocal(musicEnter, 0.45, 0.0, 0x0, 0);
+            PlaySoundLocal(portCrossSfx, 0.65, 0.0, 0x0, 0);
+            SetFaceGeoMode(wellPortSurf, 4); # textured
+            ClearAdjoinFlags(wellPortSurf, 0x2); # clear move
+
+            ThingFadeAnim(membrane, 1, 0, 2.0, 0);
+            ChangeSoundVol(hSnd, 0.0, 1);
+            for (i = 0; i < 10; i = i + 1)
+            {
+                SetAdjoinAlpha(wellPortSurf, 25.6 * i);
+                Sleep(0.18);
+            }
+            ClearAdjoinFlags(wellPortSurf, 0x1); # clear visible
+            DestroyThing(membrane);
+        }
+    return;
+end

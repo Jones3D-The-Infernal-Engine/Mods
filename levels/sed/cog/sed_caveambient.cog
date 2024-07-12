@@ -1,0 +1,129 @@
+# Generic script for cave ambient sound.
+# Ambient sound is started when player crosses start adjoin, played randomly in intervals,
+# and stopped when player enters water or crosses stop adjoin.
+#
+# [Crt Vavros]
+#======================================================================================
+
+symbols
+    message timer
+    message crossed
+
+    thing player local
+
+    flex minInterval=4
+    flex rangeInterval=8
+    flex minVolume=0.35
+    flex rangeVolume=0.65
+
+    sound amb0=gen_cave_a1.wav
+    sound amb1=gen_cave_a6.wav
+    sound amb2=gen_cave_a5.wav
+    sound amb3=gen_cave_a4.wav
+    sound amb4=gen_cave_a3.wav
+    sound amb5=gen_cave_a2.wav
+    sound amb6=nub_ambient3_a.wav
+    sound amb7=teo_gen_a3.wav
+    sound amb8=teo_gen_a6.wav
+    sound amb9=teo_gen_a2.wav
+
+    surface startSurf0  linkid=2
+    surface startSurf1  linkid=2
+    surface startSurf2  linkid=2
+    surface startSurf3  linkid=2
+    surface startSurf4  linkid=2
+    surface startSurf5  linkid=2
+    surface startSurf6  linkid=2
+    surface startSurf7  linkid=2
+    surface startSurf8  linkid=2
+    surface startSurf9  linkid=2
+    surface startSurf10 linkid=2
+
+    surface stopSurf0  linkid=3
+    surface stopSurf1  linkid=3
+    surface stopSurf2  linkid=3
+    surface stopSurf3  linkid=3
+    surface stopSurf4  linkid=3
+    surface stopSurf5  linkid=3
+    surface stopSurf6  linkid=3
+    surface stopSurf7  linkid=3
+    surface stopSurf8  linkid=3
+    surface stopSurf9  linkid=3
+    surface stopSurf10 linkid=3
+
+    int bSwimming=0   local
+    int bUnderwater=0 local
+    int sndIdx        local
+    int curSound      local
+    int timerID=2     local
+    int bPlaying=0    local
+
+    # Subroutine
+    flex StartTimer=0 local
+end
+
+code
+    timer:
+        player      = GetLocalPlayerThing();
+        bSwimming   = BitTest(GetThingFlags(player), 0x2000000);
+        bUnderwater = bSwimming && !BitTest(GetPhysicsFlags(player), 0x100000);
+        if (bPlaying)
+        {
+            if (bUnderwater)
+            {
+                #DebugPrint("Stopped playing cave ambient sound due to player underwater");
+                StopSound(curSound, 2.0);
+                bPlaying = 0;
+            }
+            Call StartTimer;
+            return;
+        }
+
+        if (!bUnderwater)
+        {
+            #DebugPrint("Start playing cave ambient sound");
+            bPlaying = 1;
+            sndIdx = RandBetween(0, 9);
+            curSound = PlaySoundLocal(amb0[sndIdx], (minVolume + (Rand() * rangeVolume)), ((Rand() * 2) -1.0), 0x0, 0);
+        }
+
+        Call StartTimer;
+
+        if (bPlaying)
+        {
+            WaitForSound(curSound);
+            bPlaying = 0;
+            #DebugPrint("Finished playing cave ambient sound");
+        }
+
+    return;
+
+    crossed:
+        if (GetSenderID() == 2) # start
+        {
+            #DebugPrint("Start cave ambient");
+            player      = GetLocalPlayerThing();
+            bSwimming   = BitTest(GetThingFlags(player), 0x2000000);
+            bUnderwater = bSwimming && !BitTest(GetPhysicsFlags(player), 0x100000);
+            if (bUnderwater && bPlaying) {
+                StopSound(curSound, 0.5);
+                bPlaying = 0;
+            }
+
+            Call StartTimer;
+        }
+
+        if (GetSenderID() == 3) # stop
+        {
+            #DebugPrint("Stop cave ambient");
+            KillTimerEx(timerID);
+            if (bPlaying) {
+                StopSound(curSound, 2.0);
+            }
+        }
+    return;
+
+    StartTimer:
+        SetTimerEx(minInterval + (Rand() * rangeInterval), timerID, 0, 0);
+    return;
+end

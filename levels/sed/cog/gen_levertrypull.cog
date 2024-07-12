@@ -1,0 +1,80 @@
+# General script for trying to pull stuck lever
+#
+# [Crt Vavros]
+# ==============================================================================
+
+symbols
+    message startup
+    message activated
+
+    thing indy   nolink
+    thing camera nolink
+    thing lever
+
+    keyframe indyTryPull=in_pull_lever_start.key   local
+    keyframe indyTryPullEnd=in_pull_lever_end.key  local
+
+    sound inUnnh=inxj033a.wav        local # Unnh...
+    sound inWontBudge=inxj098.wav    local
+    sound inThatWontWork=inxj058.wav local
+
+    thing player nolink local
+
+    flex FOV=60
+
+    # local vars
+    int curCam   local
+    int trackNum local
+    float yaw    local
+end
+
+code
+    startup:
+        player = GetLocalPlayerThing();
+    return;
+
+    activated:
+        # Should face lever
+        yaw = VectorDot(GetThingLVec(player), GetThingLVec(lever));
+        if (yaw < 0.90) return;
+
+        if (GetCurItem(player) != 0)
+        {
+            PlayVoice(player, inThatWontWork, 1, 1);
+            return;
+        }
+
+        MakeMeStop();
+        DeselectWeaponWait(player);
+        StartCutscene(2);
+
+        # Bring in actor
+        SetThingFlags(player, 0x80000);
+        CopyPlayerHolsters(player, indy);
+        ClearThingFlags(indy, 0x80000);
+
+        # Cut to cutscene camera
+        curCam = GetCurrentCamera(); # Remember the current camera
+        SetCameraFocus(2, camera);
+        SetCameraSecondaryFocus(2, indy);
+        SetCurrentCamera(2);
+        SetCameraFOV(FOV, 0, 0.0);
+
+        # Indy try to pull lever
+        trackNum = PlayKey(indy, indyTryPull, 4, 0x14, 0); # 0x14 = no fade in + pause on last frame
+        Sleep(1.0);
+        PlayVoice(indy, inUnnh, 1.0, 1);
+        PlayVoice(indy, inWontBudge, 1.0, 0);
+        PlayKey(indy, indyTryPullEnd, 4, 0x12, 1); # 0x12 = no fade out + no loop
+        StopKey(indy, trackNum, 0.0);
+
+        # Return control and camera to player
+        CopyOrientAndPos(indy, player); # move player to indy's position
+        SetThingFlags(indy, 0x80000);
+        ClearThingFlags(player, 0x80000);
+        ClearActorFlags(player, 0x200000); # enable player controls
+        SetCurrentCamera(curCam);
+        SetCameraFocus(curCam, player);
+        EndCutscene();
+    return;
+end

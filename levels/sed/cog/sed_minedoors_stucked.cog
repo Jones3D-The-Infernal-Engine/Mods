@@ -1,0 +1,140 @@
+symbols
+    message startup
+    message entered
+    message activated
+    message blocked
+
+    thing car      local
+    thing player   local
+    thing doorLeft
+    thing doorRight
+
+    sector doorSector nolink
+    surface surfOpen mask=0x404
+
+    sound sndOpen=sol_cardoor_open_c.wav              local
+    sound sndDoorScrape1=fol_in_scrapemetal_short.wav local
+    sound sndDoorScrape2=fol_in_scrapemetal_med.wav   local
+    sound in_line0=Pr15j02.wav                        local   # The fire door only opens...
+    sound in_line1=Inxj096.wav                        local   # I can't open it.
+    sound in_another_way=sed05j01.wav                 local   # Uh-oh.... That doesn't look good. I think I'll have to find another way in!
+
+    vector color    local
+
+    flex R=0.3
+    flex G=0.3
+    flex B=0.35
+
+    int doorsOpen=0    local
+    int sender         local
+    int newComment     local
+    int oldComment     local
+    int playing=0      local
+
+    int doorsMoving=0    local
+    int count=0          local
+
+    flex openDoors    local
+end
+
+code
+    startup:
+        player = GetLocalPlayerThing();
+
+        SectorAdjoins(doorSector, 0); # turn off adjoin
+        color = VectorSet(R, G, B);
+        SetThingLight(doorLeft, color, 0.001, 0.1);
+        SetThingLight(doorRight, color, 0.001, 0.1);
+
+    return;
+
+    entered:
+        sender = GetSenderRef();
+        car = GetSourceRef();
+
+        if(BitTest(GetPhysicsFlags(car), 0x01000000))
+        {
+            if( sender == surfOpen) {
+                Call openDoors;
+            }
+        }
+
+    return;
+
+    activated:
+        if((GetSenderRef() == doorLeft) || (GetSenderRef() == doorRight))
+        {
+            if(playing == 0)
+            {
+                playing = 1;
+
+                while (newComment == oldComment)
+                {
+                    newComment = RandBetween(0, 1);
+                }
+
+                oldComment = newComment;
+                count = count + 1;
+
+                MakeMeStop();
+                StartCutscene(0);
+
+                # offset camera and nudge the door
+                SetExtCamOffset('0.1 0.0 0.065');
+
+                # put away any weapon
+                DeselectWeaponWait(player);
+
+                PlayMode(player, 60, 0);
+                Sleep(0.3);
+
+                PlayVoice(player, in_line0[newComment], 1.0, 1);
+
+                RestoreExtCam();
+                ClearActorFlags(player, 0x200000);
+                EndCutscene();
+
+                playing = 0;
+            }
+        }
+
+    return;
+
+    openDoors:
+        if ( (doorsOpen == 1) || (doorsMoving == 1)) {
+            return;
+        }
+
+        doorsMoving = 1;
+        SectorAdjoins(doorSector, 1); # turn on adjoin
+
+        # play door sounds
+        PlaySoundThing(sndOpen, doorLeft, 0.75, 15.0, 30.0, 0);
+        Sleep(0.02);
+        PlaySoundThing(sndOpen, doorRight, 0.75, 15.0, 30.0, 0);
+
+        # open the doors
+        MoveToFrame(doorLeft, 1, 2.2);
+        MoveToFrame(doorRight, 1, 2.2);
+
+        Sleep(0.2);
+        PlaySoundThing(sndDoorScrape1, doorLeft, 1.0, 10.0, 30.0, 0x200); # 0x200 - highest priority
+        Sleep(0.02);
+        PlaySoundThing(sndDoorScrape2, doorRight, 1.0, 10.0, 30.0, 0x200);
+
+        Sleep(0.4);
+
+        # Indy says hint
+        PlayVoice(player, in_another_way, 1.0, 0x200);
+        WaitForStop(doorLeft);
+
+        doorsOpen = 1;
+        doorsMoving = 0;
+    return;
+
+    blocked:
+        Call openDoors;
+    return;
+
+end
+

@@ -1,0 +1,310 @@
+# SED script for aetherium shs pocket script
+#
+# [Crt Vavros]
+#======================================================================================
+
+symbols
+    message startup
+    message entered
+    message exited
+    message activated
+    message pulse
+    message killed
+
+    thing waterfallPos nolink
+    thing doorShs      mask=0x400
+    thing doorHut      nolink # captured in startup
+
+    thing spawnPos1    nolink
+    thing spawnPos2    nolink
+    thing spawnPos3    nolink
+
+    thing camPosHut    nolink
+
+    sector startWaterfallAmb linkID=1
+    sector stopAmbSound      linkID=2
+    sector enemySpawnSec     mask=0x400
+
+    surface waterEdgeSurf1 linkID=4 mask0x400
+    surface waterEdgeSurf2 linkID=4 mask0x400
+    surface waterEdgeSurf3 linkID=4 mask0x400
+    surface waterEdgeSurf4 linkID=4 mask0x400
+    surface waterEdgeSurf5 linkID=4 mask0x400
+
+    surface closeDoorSurf1 linkID=3
+    surface closeDoorSurf2 linkID=3
+    surface closeDoorSurf  local
+
+    cog doorTalk
+    cog doorOpen
+    cog teleportToSed
+
+    # Templates
+    template squidTpl=sed_float    local
+    template indyTpl=indy_sh_actor local
+
+    # Keyframe
+    keyframe inAstonished=0in_reaction.key       local
+    keyframe inToCrossedArms=0in_stand1_bd_4.key local
+    keyframe inHatPush=0in_figithat_4_4.key      local
+
+    # Voice lines
+    sound inLocked=sed08j02.wav             local
+    sound inComeOn=sed08j03.wav             local
+    sound inPortalJourney=sed08j04.wav      local
+    sound inHeyItsUnlocked=inxj107.wav      local
+    sound inAutomaticCloseDoor=sed09j01.wav local
+
+    # Ambient sounds
+    sound waterfallAmbSnd=gen_waterfall_a.wav local
+    sound inDoorClose=shs_belldoors_close.wav local
+
+    # Sound effects
+    sound lockedDoorSfx=shs_door_double_stop.wav local
+
+    # Local vars
+    int wfAmbTrack      local
+    int bWfAmbSound=0   local
+    int bTryShsDoor=0   local
+    int bDoorTalk=0     local
+    int bEnemySpawned=0 local
+    int bDoorClosed=0   local
+    int surfNum         local
+    int curTrack        local
+    int curVoice        local
+    int bComment=1      local
+    int numSquids       local
+    int bHutDoorLock=1  local
+    int bInHut=0        local
+
+    vector spawnDist local
+
+    thing player    local
+    thing squid     local
+    thing indyActor local
+
+    # sub-routines
+    float CloseDoor=0 local
+end
+
+code
+    startup:
+        Sleep(0.01);
+        player = GetLocalPlayerThing();
+        CaptureThing(doorHut); # released in activated
+    return;
+
+    entered:
+        if ((GetSenderID() == 1) && (bWfAmbSound == 0))
+        {
+            bWfAmbSound = 1;
+            wfAmbTrack = PlaySoundThing(waterfallAmbSnd, waterfallPos, 0.8, 2, 45, 0x01);
+        }
+        else if ((GetSenderID() == 2) && (bWfAmbSound == 1))
+        {
+            bWfAmbSound = 0;
+            StopSound(wfAmbTrack, 2.0);
+        }
+        else if ((GetSenderID() == 3) && (bDoorClosed == 0))
+        {
+            bInHut = 1;
+            Call CloseDoor;
+        }
+        else if ((GetSenderID() == 4) && bComment) # comment portal journey
+        {
+            bComment = 0;
+            PlayVoice(player, inPortalJourney, 1, 0);
+        }
+
+        if (GetSenderRef() == enemySpawnSec && bEnemySpawned == 0)
+        {
+            bEnemySpawned = 1;
+            SetPulse(0.5);
+        }
+    return;
+
+    exited:
+        if ((GetSenderID() == 3) && (bDoorClosed == 0)) {
+            bInHut = 0;
+        }
+
+    return;
+
+    activated:
+        if (GetSenderRef() == doorShs)
+        {
+            # Indy activates door to Shambala sanctuary
+            if (bDoorTalk) return;
+            bDoorTalk = 1;
+
+            if (GetCurItem(player) != 0) # item activation
+            {
+                SendMessageEx(doorTalk, user3, player, 0, 0, 0); # wrong item talk
+                while (global15 != 0) {
+                    Sleep(0.01);
+                }
+            }
+            else # empty hand activation
+            {
+                if (!bTryShsDoor)
+                {
+                    bTryShsDoor = 1;
+                    MakeMeStop(); # disables player controls
+                    PlayMode(player, 60, 0); # activate door
+                    Sleep(0.6);
+                    PlaySoundLocal(lockedDoorSfx, 1, 0, 0, 0);
+                    Sleep(0.5);
+                    ClearActorFlags(player, 0x200000); # enable player controls
+                    PlayVoice(player, inLocked, 1, 1);
+                }
+                else
+                {
+                    SendMessageEx(doorTalk, user4, player, 1, RandBetween(1, 2), 0); # locked door talk
+                    while (global15 != 0) {
+                        Sleep(0.01);
+                    }
+                }
+            }
+
+            bDoorTalk = 0;
+        }
+        else if ( GetSenderRef() == doorHut)
+        {
+            if (!bHutDoorLock)
+            {
+                ReleaseThing(doorHut); # prevent any further activation of the door
+                Sleep(0.7);
+                PlayVoice(player, inHeyItsUnlocked, 1, 0);
+            }
+            else # the doors are locked until all enemy squids are killed
+            {
+                # Indy activates hut's door
+                if (bDoorTalk) return;
+                bDoorTalk = 1;
+
+                MakeMeStop(); # disables player controls
+                PlayMode(player, 60, 0); # activate door
+                Sleep(0.6);
+                PlaySoundLocal(lockedDoorSfx, 1, 0, 0, 0);
+                Sleep(0.5);
+
+                ClearActorFlags(player, 0x200000); # enable player controls
+                SendMessageEx(doorTalk, user4, player, 1, RandBetween(1, 2), 0); # locked door talk
+                while (global15 != 0) {
+                    Sleep(0.01);
+                }
+                bDoorTalk = 0;
+            }
+        }
+    return;
+
+    pulse:
+        if (GetSenderType() != 0) return; # if sender is not this script (captured squids send pulse msg)
+
+        # squid spawn logic
+        spawnDist = VectorSub(GetThingPos(spawnPos1), GetThingPos(player));
+        spawnDist = VectorSet(VectorX(spawnDist), VectorY(spawnDist), 0); # clear z
+        if ( (Abs(VectorLen(spawnDist)) <= 1.0 && VectorDot(VectorNorm(spawnDist), GetThingLVec(player)) >= 0.8) ) # when 10m or less from spawn position and facing the spawn pos
+        {
+            SetPulse(0.0);
+            numSquids = 3;
+
+            squid = CreateThing(squidTpl, spawnPos1);
+            CaptureThing(squid); # capture killed message
+
+            MakeMeStop();
+            PlayVoice(player, inComeOn, 1, 0);
+            PlayKeyEx(player, inAstonished, 10, 12, 0x02, 1);
+            SetThingPos(player, VectorAdd(GetThingPos(player), VectorTransformToOrient(player, '0 -0.07363 0'))); # Offset player position to the animation end frame position.
+                                                                                                                  # This is a hack since force move can't be played for keyframe animation
+            ClearActorFlags(player, 0x200000); # enable controls
+
+            Sleep(2.0);
+            squid = CreateThing(squidTpl, spawnPos2);
+            CaptureThing(squid); # capture killed message
+
+            Sleep(5);
+            squid = CreateThing(squidTpl, spawnPos3);
+            CaptureThing(squid); # capture killed message
+        }
+    return;
+
+    killed:
+        if (GetThingTemplate(GetSenderRef()) == squidTpl)
+        {
+            numSquids = numSquids - 1;
+            if (numSquids < 1)
+            {
+                bHutDoorLock = 0;
+                SendMessage(doorOpen, user0); # Unlock door
+            }
+        }
+    return;
+
+    CloseDoor:
+        # This section closes the hut's door and teleports player to sed sector
+
+        bDoorClosed = 1;
+        WaitForStop(doorHut);
+        if (!bInHut) return;
+
+        MakeMeStop();
+        Rotate(doorHut, -110, 1, 1.5);
+        StopSoundClass(doorHut, 3); # prevent playing of startmove sound
+        Sleep(1);
+        PlaySoundThing(inDoorClose, doorHut, 1, 3, 10, 0x80);
+
+        StartCutscene(2);
+
+         # Prepare indy actor
+        DeselectWeaponWait(player); # put away weapon
+
+        indyActor = CreateThing(indyTpl, player);
+        CopyPlayerHolsters(player, indyActor);
+        ClearThingFlags(indyActor, 0x80000);
+        SetThingFlags(player, 0x80000);
+        Sleep(0.2);
+
+        # Set camera
+        SetCameraLookInterp(2, 0);
+        SetCameraPosInterp(2, 0);
+        SetCameraFocus(2, camPosHut);
+        SetCameraSecondaryFocus(2, indyActor);
+        SetCurrentCamera(2);
+        SetCameraFOV(80, 0, 0);
+
+        # Look at door
+        AISetLookThing(indyActor, doorHut);
+        AIWaitForStop(indyActor);
+
+        curTrack = PlayKey(indyActor, inToCrossedArms, 4, 0x04, 0); # 0x4 - freezes animation on last frame
+        Sleep(1.0);
+        curVoice = PlayVoice(indyActor, inAutomaticCloseDoor, 1.0, 0);
+        PlayKey(indyActor, inHatPush, 6, 0x20, 0);
+        WaitForSound(curVoice);
+
+        StopKey(indyActor, curTrack, 0.6); # stops previously frozen crossarm animation
+        Sleep(1.0);
+
+        # Now Teleport player to sed sector
+        closeDoorSurf = GetSenderRef();
+        surfNum = 0;
+        if (closeDoorSurf == closeDoorSurf2) {
+            surfNum = 1;
+        }
+
+        CopyOrientAndPos(indyActor, player);
+        SendMessageEx(teleportToSed, user0, closeDoorSurf, surfNum, 0, 0);
+
+        # End cutscene
+        SetThingFlags(indyActor, 0x80000);
+        ClearThingFlags(player, 0x80000); # show player
+        ClearActorFlags(player, 0x200000); # enable controls
+        DestroyThing(indyActor);
+
+        SetCurrentCamera(1);
+        ResetCameraFOV(0, 0);
+
+        EndCutscene();
+    return;
+end

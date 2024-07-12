@@ -1,0 +1,225 @@
+symbols
+    message    startup
+    message    activated
+    message    entered
+    message    exited
+    message    callback
+
+    # actors
+    thing player     local
+    thing indyactor0 nolink # says hints
+    thing indyactor1 nolink # fills tank
+
+    # world things
+    thing minecar    nolink
+
+    # camera things
+    thing gascam     nolink
+
+    # swappable Indy hand
+    model gascanHandModel=hand_in_gascan.3do local
+
+    # surfaces
+    surface gasface
+
+    #sounds
+    sound inNope=Inxj088.wav local # indy: nope
+
+    # voicelines
+    sound mightstillrun=pr15j07.wav local
+    sound hadsomegas=pr15j09.wav    local
+
+    # non-voice sounds
+    sound filltank=jep_gascan_pour.wav local
+
+    # animations
+    keyframe pourgas=0in_pourgasoline.key local
+
+    # variables
+    int bHasFuel=0     local
+    int actornum=0     local
+    int bCanRefuel=0   local
+    int swapRef=0      local
+    int callNum        local
+    int curItem=-1     local
+    int gasCanBin=66   local
+
+    # subroutines
+    flex startscene=0.0   local
+    flex endscene=0.0     local
+    flex fixcams=0.0      local
+    flex sayhint=0.0      local
+    flex refuelcar=0.0    local
+    flex changecam1=0.0   local
+end
+
+code
+    startup:
+        sleep(.01);
+        player = GetLocalPlayerThing();
+        CaptureThing(minecar);
+        return;
+
+    activated:
+        if (GetSenderRef() != minecar || bHasFuel == 1) return;
+
+        curItem = GetCurItem(player);
+        if (curItem > 0 && ((curItem != gasCanBin) || (bCanRefuel == 0)))
+        {
+            PlayVoice(player, inNope, 1.0, 1);
+            return;
+        }
+
+        # if player is holding gas can and is on the right face, refuel car
+        if (curItem == gasCanBin)
+        {
+            # prepare player
+            if (MakeMeStop() == -1) return;
+            DeselectWeaponWait(player);
+
+            call refuelcar;
+
+            # make minecar boardable
+            ReleaseThing(minecar);
+
+            DestroyThing(indyactor0);
+            DestroyThing(indyactor1);
+        }
+        else # otherwise, say something
+        {
+            # prepare player
+            if (MakeMeStop() == -1) return;
+            DeselectWeaponWait(player);
+
+            call sayhint;
+
+            # restore player
+            SetThingFlags(indyactor0, 0x80000);
+            ClearThingFlags(player, 0x80000);
+            ClearActorFlags(player, 0x200000);
+            RestoreExtCam();
+            EndCutscene();
+
+            sleep(.75);
+            return;
+        }
+
+        call endscene;
+        return;
+
+    entered:
+        if (GetSenderRef() != gasface) return;
+        bCanRefuel = 1;
+        return;
+
+    exited:
+        if (GetSenderRef() != gasface) return;
+        bCanRefuel = 0;
+        return;
+
+    sayhint:
+        if (bHasFuel != 0) return; # in case car is already filled
+
+        StartCutscene(1);
+
+        # switcheroo to floating actor
+        TeleportThing(indyactor0, player);
+        CopyPlayerHolsters(player, indyactor0);
+        ClearThingFlags(indyactor0, 0x80000);
+        SetActorFlags(player, 0x200000);
+        SetThingFlags(player, 0x80000);
+
+        # Start the action
+        SetExtCamOffset('0.15 -.1 0.09');
+        SetThingMaxRotVel(indyactor0, 175);
+        SetThingMaxHeadVel(indyactor0, 175);
+        AISetLookThing(indyactor0, minecar);
+        AIWaitForStop(indyactor0);
+
+        Sleep(1.0);
+
+        PlayVoice(indyactor0, mightstillrun, 1, 1); # Indy: This thing might still run...
+        PlayVoice(indyactor0, hadsomegas, 1, 1); # Indy: ...if it had some gas
+
+        return;
+
+    refuelcar:
+        # Capture for callback
+        CaptureThing(indyactor1);
+
+        # Fill up the gas tank
+        actornum = 1;
+        call startscene;
+        call changecam1;
+
+        # Play pour animation
+        AISetLookThing(indyactor1, minecar);
+        Sleep(.5);
+        PlayKey(indyactor1, pourgas, 4, 0x12, 0);
+        Sleep(1);
+        PlaySoundThing(filltank, indyactor1, 1, -1, -1, 0);
+        Sleep(6);
+
+        bHasFuel = 1;
+        return;
+
+    changecam1:
+        # Change to gascam
+        SetCameraFocus(2, gascam);
+        SetCameraSecondaryFocus(2, indyactor1);
+        SetCurrentCamera(2);
+        ResetCameraFOV(0, 0);
+        return;
+
+    startscene:
+        call fixcams;
+
+        StartCutscene(1);
+        CopyPlayerHolsters(player, indyactor0[actornum]);
+        ClearThingFlags(indyactor0[actornum], 0x80000);
+        SetActorFlags(player, 0x200000);
+        SetThingFlags(player, 0x80000);
+        return;
+
+    endscene:
+        call fixcams;
+
+        TeleportThing(player, indyactor0[actornum]);
+        SetThingFlags(indyactor0[actornum], 0x80000);
+        ClearThingFlags(player, 0x80000);
+        ClearActorFlags(player, 0x200000);
+        SetCameraSecondaryFocus(2, player);
+
+        SetCurrentCamera(1);
+        EndCutscene();
+        return;
+
+    fixcams:
+        # Reset camera settings
+        ResetCameraFOV(0, 0);
+        SetCameraPosInterp(2, 0);
+        SetCameraLookInterp(2, 0);
+        SetCameraPosInterp(1, 0);
+        SetCameraLookInterp(1, 0);
+        RestoreExtCam();
+        return;
+
+    callback:
+        if (GetSenderRef() != indyactor1) return;
+        callNum = GetParam(1);
+
+        if (callNum == 21)
+        {
+            # Put can in hand
+            swapRef = SetThingMesh(indyactor1, 15, gascanHandModel, 0);
+        }
+        else if (callNum == 22)
+        {
+            # Get rid of can
+            RestoreThingMesh(indyactor1, swapRef);
+            ReleaseThing(indyactor1);
+        }
+
+        return;
+end
+

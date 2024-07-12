@@ -1,0 +1,39 @@
+# Script to destroy a thing when it is hit by an explosion
+symbols
+    message startup
+    message damaged
+    thing thing mask=0x40 linkid=1 # 0x40 = 1 << 6, 6 - explosion thing type
+
+    surface blockAdjoin1 mask=0x40 linkid=1
+    surface blockAdjoin2 mask=0x40 linkid=1
+end
+
+code
+    startup:
+        if (blockAdjoin1 != -1)
+        {
+            ClearAdjoinFlags(blockAdjoin1, 0x2);
+        }
+
+        if (blockAdjoin2 != -1)
+        {
+            ClearAdjoinFlags(blockAdjoin2, 0x2);
+        }
+    return;
+
+    damaged:
+        if ((GetSenderId() == 1) && (GetParam(1) == 0x04)) # This if statement is not needed, just to make sure it's an explosion and rock is the sender
+        {
+            DestroyThing(thing);
+            if (blockAdjoin1 != -1)
+            {
+                SetAdjoinFlags(blockAdjoin1, 0x2);
+            }
+
+            if (blockAdjoin2 != -1)
+            {
+                SetAdjoinFlags(blockAdjoin2, 0x2);
+            }
+        }
+    return;
+end

@@ -1,0 +1,261 @@
+# Script introduces aetherium creatures to player after the portal opens, i.e.:
+# - cutscene when players first spots creatures
+# - triggers creature gen COG to start generating creatures
+# - plays mystique ambient sound
+#
+# By default this COG is disable and has to be activated with user0 message.
+#
+# [Crt Vavros]
+#======================================================================================
+
+symbols
+    message startup
+    message entered
+    message user0
+    message pulse
+
+    sector trackSec mask=0x400 # only player
+    sector caveSec  mask=0x400
+
+    cog ambMusicCog     nolink
+    cog spawnEnemyCog1  nolink
+    cog spawnEnemyCog2  nolink
+
+    thing squidPosTrack nolink
+    thing squid         local
+
+    thing shrimpy       nolink
+
+    thing camPosTrack   nolink
+    thing camLookTrack  local
+
+    thing camPosCave   nolink
+    thing camLookCave  local
+
+    thing player    local
+    thing indyActor local
+
+    template indyActorTpl=indy_sh_actor local
+    template squidTpl=sed_float         local
+    template ghostTpl=ghost             local
+
+    keyframe inAstonished=0in_reaction.key       local
+    keyframe inToCrossedArms=0in_stand8_bd_9.key local
+    keyframe inHatPush=0in_figithat_9_9.key      local
+
+    sound alert=sed_alertalert.wav       local
+    sound inWhoa=inxj007.wav             local # "Whoa"
+    sound inUglySquid=sed06j03.wav       local # "Where did this hideous squid come from, now?"
+    sound inFlyingShrimps=sed06j04a.wav  local # "Huh, flying shrimps... I know these two. Where did they come from?"
+    sound inComeFrom=sed06j04b.wav       local # "Where did they come from?"
+    sound inFryingPanReady=sed06j04c.wav local # "I bet there will be more of these seafood pests, better get my frying pan ready."
+
+    # local vars
+    int bActive=0         local
+    int i                 local
+    int curSound          local
+    int curTrack          local
+    flex squidMaxDist=0.6 local
+
+    vector dist           local
+
+    # subroutines
+    flex DoTrackAreaCutscene=0 local
+    flex DoCaveAreaCutscene=0  local
+    flex EnableSpawning=0      local
+    flex StartAmbMusic=0       local
+end
+
+code
+    startup:
+        Sleep(0.1); # Let engine initializes
+        player = GetLocalPlayerThing();
+    return;
+
+    user0:
+        if (bActive) return;
+        bActive = 1;
+    return;
+
+    entered:
+        if (!bActive) return;
+        bActive = 0; # should be immediately deactivated because this action should be triggered only once from one sector
+
+        if (GetSenderRef() == trackSec) { # track sector
+            SetPulse(0.2); # enable distance to enemy spawn meter
+        }
+        else { # should be caveSec
+            Call DoCaveAreaCutscene;
+        }
+    return;
+
+    DoCaveAreaCutscene:
+        MakeMeStop();
+
+        StartCutscene(2);
+
+        # Prepare actor
+        indyActor = CreateThing(indyActorTpl, player);
+        CopyPlayerHolsters(player, indyActor);
+        SetThingFlags(player, 0x80000);
+        ClearThingFlags(indyActor, 0x80000);
+        AISetCutSceneMode(indyActor);
+
+        # Offset external cam to thing
+        SetExtCamOffsetToThing(camPosCave);
+        Sleep(0.2);
+        camLookCave = CreateThingAtPos(ghostTpl, GetThingSector(indyActor), VectorAdd(GetThingPos(indyActor), GetThingEyeOffset(indyActor)), '0 0 0');
+        SetExtCamLookOffsetToThing(camLookCave);
+        Sleep(0.5);
+
+        # Make indy look the shrimp
+        SetThingMaxRotVel(indyActor, 150); # slow down indy's rotation
+        AISetLookThingEyeLevel(indyActor, shrimpy);
+        AIEnableHeadTracking(indyActor, shrimpy);
+        AIWaitForStop(indyActor);
+        Sleep(0.3);
+
+        # Say a line about flying shrimps
+        PlayVoice(indyActor, inFlyingShrimps, 1, 0);
+
+        # switch to camera 2 with focus on ghost at indy's position
+        SetCameraFocus(2, camPosCave);
+        SetCameraSecondaryFocus(2, camLookCave);
+        SetCurrentCamera(2);
+        SetCameraFOV(90, 0, 0.0);
+        Sleep(1.5);
+
+        # Move cam look target to shrimp
+        MoveThingToPos(camLookCave, GetThingPos(shrimpy), 2.0);
+        Sleep(2.75);
+
+        # Indy crosses his arms and says line about where the 2 shrimps came from
+        AIEnableBodyTracking(indyActor, shrimpy); # Follow shrimpy
+        curTrack = PlayKey(indyActor, inToCrossedArms, 4, 0x04, 0); # 0x4 - freezes animation on last frame
+        PlayVoice(indyActor, inComeFrom, 1, 1);
+
+        # Move camera look target back to indy
+        MoveThingToPos(camLookCave, VectorAdd(GetThingPos(indyActor), GetThingEyeOffset(indyActor)), 2.0);
+        Sleep(2.5);
+
+        # Indy fidgets his hat and say line about frying pan
+        AIDisableBodyTracking(indyActor);
+        PlayKey(indyActor, inHatPush, 6, 0x20, 0);
+        PlayVoice(indyActor, inFryingPanReady, 1, 1);
+        StopKey(indyActor, curTrack, 0.6); # stops previously frozen crossarm animation
+        AIDisableHeadTracking(indyActor);  # disable head tracking so indy won't follow shrimp with his head while controls are restored back to player
+        Sleep(0.8);
+
+        # Restore cam
+        SetCameraPosition(1, GetThingPos(camPosCave));
+        SetCurrentCamera(1);
+        RestoreExtCam();
+        SetCameraFOV(90, 0, 0.0);
+
+        # End cutscene
+        CopyOrientAndPos(indyActor, player);
+        SetThingFlags(indyActor, 0x80000);
+        ClearThingFlags(player, 0x80000); # show player
+        ClearActorFlags(player, 0x200000); # enable controls
+        DestroyThing(indyActor);
+        DestroyThing(camLookCave);
+
+        EndCutScene();
+
+        # Start ambient music
+        Sleep(0.5);
+        Call StartAmbMusic;
+
+        # Enable enemy spawning
+        Sleep(5);
+        Call EnableSpawning;
+    return;
+
+    DoTrackAreaCutscene:
+        StartCutscene(1);
+        MakeMeStop();
+
+        indyActor = CreateThing(indyActorTpl, player);
+        CopyPlayerHolsters(player, indyActor);
+        ClearThingFlags(indyActor, 0x80000);
+        SetThingFlags(player, 0x80000);
+
+        camLookTrack = CreateThing(ghostTpl, player);
+
+        # Offset external cam to thing
+        SetExtCamOffsetToThing(camPosTrack);
+        Sleep(0.2);
+        SetExtCamLookOffsetToThing(camLookTrack);
+        Sleep(0.5);
+
+        # Create squid
+        squid = CreateThingAtPos(squidTpl, GetThingSector(squidPosTrack), GetThingPos(squidPosTrack), VectorSub(GetThingLVecPYR(squidPosTrack), GetThingLVecPYR(player)));
+        AISetCutSceneMode(squid);
+
+        Sleep(0.2);
+        curSound = PlaySoundLocal(alert, 1.0, 0, 0x0, 0);
+        AISetLookThingEyeLevel(indyActor, squid);
+        AIWaitForStop(indyActor);
+
+        PlayVoice(indyActor, inWhoa, 1, 0);
+        PlayKeyEx(indyActor, inAstonished, 10, 12, 0x02, 1);
+        SetThingPos(indyActor, VectorAdd(GetThingPos(indyActor), VectorTransformToOrient(indyActor, '0 -0.07363 0'))); # Offset actor position to the animation end frame position.
+                                                                                                                       # This is a hack since force move can't be played for keyframe animation
+        StopSound(curSound, 10);
+
+        # Restore cam
+        SetCameraPosition(1, GetThingPos(camPosTrack));
+        SetCurrentCamera(1);
+        RestoreExtCam();
+        SetCameraFOV(90, 0, 0.0);
+
+        # End cutscene
+        CopyOrientAndPos(indyActor, player);
+        SetThingFlags(indyActor, 0x80000);
+        ClearThingFlags(player, 0x80000); # show player
+        ClearActorFlags(player, 0x200000); # enable controls
+        DestroyThing(indyActor);
+        DestroyThing(camLookTrack);
+        EndCutScene();
+
+        Sleep(0.5);
+        PlayVoice(player, inUglySquid, 1, 0);
+
+        Sleep(1.0);
+        AIClearCutSceneMode(squid); # attack player
+
+        # Start ambient music
+        WaitForSound(curSound);
+        Call StartAmbMusic;
+
+        # Enable & start enemy spawning
+        Sleep(5);
+        Call EnableSpawning;
+        for (i = 0; i < 2; i = i + 1) {
+            SendMessage(spawnEnemyCog1[i], user1); # Start spawning
+        }
+    return;
+
+    pulse:
+        # Pulse code measures distance of player from squid spawn position,
+        # and if distance is less than or equal to squidMaxDist the DoTrackAreaCutscene is played.
+        dist = VectorDist(GetThingPos(squidPosTrack), GetThingPos(player));
+        if (dist <= squidMaxDist)
+        {
+            SetPulse(0);
+            Call DoTrackAreaCutscene;
+        }
+    return;
+
+    EnableSpawning:
+        # Trigger enemy generators
+        for (i = 0; i < 2; i = i + 1) {
+            SendMessageEx(spawnEnemyCog1[i], user0, 1, 0, 0, 0); # Enable enemy spawn COGs
+        }
+    return;
+
+    StartAmbMusic:
+        SendMessageEx(ambMusicCog, user0, 1, 0, 0, 0); # Enable ambient music
+        SendMessageEx(ambMusicCog, user1, 1, 0, 0, 0); # Start playing music
+    return;
+end

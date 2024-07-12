@@ -1,0 +1,97 @@
+# Jones 3D Cog Script
+# Disable/Enable adjoin(s) when player crosses adjoin surface(s).
+#
+# [Crt Vavros]
+#======================================================================================
+
+symbols
+    message crossed
+    message user0
+    message user1
+
+    surface adjoin1 nolink
+    surface adjoin2 nolink
+    surface adjoin3 nolink
+    surface adjoin4 nolink
+    surface adjoin5 nolink
+    surface adjoin6 nolink
+
+    surface disableTrigger1 linkid=1 mask=0x400 # only player will trigger (0x400)
+    surface disableTrigger2 linkid=1 mask=0x400
+    surface disableTrigger3 linkid=1 mask=0x400
+    surface disableTrigger4 linkid=1 mask=0x400
+    surface disableTrigger5 linkid=1 mask=0x400
+    surface disableTrigger6 linkid=1 mask=0x400
+
+    surface enableTrigger1  linkid=2 mask=0x400
+    surface enableTrigger2  linkid=2 mask=0x400
+    surface enableTrigger3  linkid=2 mask=0x400
+    surface enableTrigger4  linkid=2 mask=0x400
+    surface enableTrigger5  linkid=2 mask=0x400
+    surface enableTrigger6  linkid=2 mask=0x400
+
+    # local vars
+    Surface adjoin   local
+    int numSurfs=6   local
+    int idx=0        local
+    int bDisabled=0  local
+
+    # Subroutines
+    flex HideAdjoins=0.0 local
+    flex ShowAdjoins=0.0 local
+end
+
+code
+    user0:
+        Call HideAdjoins;
+    return;
+
+    user1:
+        Call ShowAdjoins;
+    return;
+
+    crossed:
+        if (GetSenderID() == 1) {
+            Call HideAdjoins;
+        }
+        else if (GetSenderID() == 2){
+            Call ShowAdjoins;
+        }
+    return;
+
+    ShowAdjoins:
+        if (bDisabled == 1)
+        {
+            #DebugPrint("Enabling adjoin(s)");
+            for (idx = 0; idx < numSurfs; idx = idx + 1)
+            {
+                adjoin = adjoin1[idx];
+                if (adjoin != -1)
+                {
+                    SetAdjoinFlags(adjoin, 0x1); # SITH_ADJOIN_VISIBLE
+                    SetFaceGeoMode(adjoin, 0);   # not drawn
+                }
+            }
+
+            bDisabled = 0;
+        }
+    return;
+
+    HideAdjoins:
+        if (bDisabled == 0)
+        {
+            #DebugPrint("Disabling adjoin(s)");
+            for (idx = 0; idx < numSurfs; idx = idx + 1)
+            {
+                adjoin = adjoin1[idx];
+                if (adjoin != -1)
+                {
+                    ClearAdjoinFlags(adjoin, 0x1); # SITH_ADJOIN_VISIBLE
+                    SetFaceGeoMode(adjoin, 4);     # texture
+                }
+            }
+
+            bDisabled = 1;
+        }
+    return;
+end

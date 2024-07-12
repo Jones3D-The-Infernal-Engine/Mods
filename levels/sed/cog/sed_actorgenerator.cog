@@ -1,0 +1,184 @@
+# Actor spawn script.
+# The spawning is triggered via initialStart timer (if -1 timer won't be started),
+# player entering triggerSec or another cog sending user1 message to this cog.
+# Note the COG must be enabled (bActive=1) in order for spawn to be triggered
+
+# user0: Enable/Disable COG with param0
+# user1: Start spawning
+# user2: Stop spawning
+#
+# The actor spawning stops either when reaching maxSpawn (if not < 0), entering stopSec sector,
+#  sending user2 message to this COG or by sending user0 message with param0=0.
+#
+# [Crt Vavros]
+#===========================================
+
+symbols
+    message startup
+    message entered
+    message user0
+    message user1
+    message user2
+    message timer
+    message pulse
+    message killed
+
+    int bActive=1
+    template tplActor
+
+    thing spawnPos1 nolink
+    thing spawnPos2 nolink
+    thing spawnPos3 nolink
+    thing spawnPos4 nolink
+    thing spawnPos5 nolink
+
+    sector triggerSec mask=0x400 # Only player will trigger message event
+    sector stopSec    mask=0x400
+
+    float initialStart=-1
+    float spawnPulse=30.0
+    float spawnDelay=1.0
+    int maxSpawnPerPulse=3
+    int maxSpawn=5           # max number of actors to spawn with this script, if -1 the actors will be spawned indefinitely
+    int maxAlive=3
+    float minDist=0.0
+    float maxDist=1000.0
+    int bNoSpawnSight=0 # player must not see actor spawn
+
+    cog notify=-1
+
+    # local vars
+    thing player       local
+    thing actor        local
+    thing curPos       local
+    thing prevPos=-1   local
+    int bTriggered=0   local
+    int curAlive=0     local
+    float distance=0.0 local
+    int numPos         local
+    int i              local
+    int numSpawn       local
+    int bSpawning=0    local
+end
+
+code
+    startup:
+        Sleep(0.1); # Let engine initializes a bit
+        player = GetLocalPlayerThing();
+
+        for (i = 0; i < 5; i = i + 1)
+        {
+            if (spawnPos1[i] >= 0) {
+                numPos = numPos + 1;
+            }
+        }
+
+        if (maxSpawnPerPulse < 1) {
+            maxSpawnPerPulse = 1;
+        }
+
+        if (maxAlive < 1) {
+            maxAlive = 1;
+        }
+
+        if (maxSpawn == 0) { # spawn at least 1 actor
+            maxSpawn = 1;
+        }
+
+        if (bActive && initialStart != -1) {
+            SetTimer(initialStart);
+        }
+    return;
+
+    user0:
+        if (GetParam(0)) {
+            bActive = 1;
+        }
+        else if (bActive)
+        {
+            bActive = 0;
+            Call user2; # stop trigger
+        }
+    return;
+
+    entered:
+        if (!bActive) return;
+        if (GetSenderRef() == triggerSec) {
+            Call user1;
+        }
+        else if (GetSenderRef() == stopSec) {
+            Call user2;
+        }
+    return;
+
+    timer: # Fallthrough to user0 code to be executed immediately
+    user1:
+        if (!bActive) return;
+        if (maxSpawn == 0 || bTriggered) return;
+        bTriggered = 1;
+        SetPulse(spawnPulse);
+        Sleep(spawnDelay);
+        # Fallthrough to pulse code to be executed immediately
+
+    pulse:
+        if (GetThingHealth(player) <= 0) return; # if player died stop generating actors
+
+        if (curAlive < maxAlive && bTriggered && !bSpawning)
+        {
+            bSpawning = 1;
+
+            numSpawn = maxAlive - curAlive;
+            if (maxSpawnPerPulse < numSpawn) {
+                numSpawn = maxSpawnPerPulse;
+            }
+            if (maxSpawn >= 0 && maxSpawn < numSpawn) {
+                numSpawn = maxSpawn;
+            }
+
+            for (i = 0; i < numSpawn; i = i + 1)
+            {
+                curPos = spawnPos1[RandBetween(0, numPos - 1)];
+                while (curPos == prevPos) {
+                    curPos = spawnPos1[RandBetween(0, numPos - 1)];
+                }
+
+                distance = VectorDist(GetThingPos(curPos), GetThingPos(player));
+                if ((distance >= minDist) && (distance <= maxDist))
+                {
+                    if (!bNoSpawnSight || !HasLOS(player, curPos))
+                    {
+                        actor = CreateThing(tplActor, curPos);
+                        CaptureThing(actor); # We need killed message send to this cog
+                        AISetMode(actor, 0x1); # Make actor to star moving around
+                        if (notify != -1) {
+                            SendMessageEx(notify, user0, actor, 0, 0, 0);
+                        }
+
+                        curAlive = curAlive + 1;
+                        prevPos  = curPos;
+                        if (maxSpawn > 0) {
+                            maxSpawn = maxSpawn - 1;
+                        }
+
+                        # Stop pulse if max actors were spawned
+                        if (maxSpawn == 0) SetPulse(0);
+                        Sleep(spawnDelay);
+                    }
+                }
+            }
+            bSpawning = 0;
+        }
+    return;
+
+    killed:
+        ReleaseThing(GetSenderRef());
+        curAlive = curAlive - 1;
+    return;
+
+    user2:
+        if (!bTriggered) return;
+        bTriggered = 0;
+        SetPulse(0);
+    return;
+end
+

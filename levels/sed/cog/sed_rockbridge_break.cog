@@ -1,0 +1,164 @@
+# SED script which breaks rock bridge when player walks onto the bridge
+#
+# [Crt Vavros]
+#======================================================================================
+
+symbols
+    message startup
+    message entered
+    message exited
+    message arrived
+    message timer
+    message pulse
+
+    thing brokenPlateau mask=0x401 # player only & system (arrived)
+    thing player        local
+
+    sound sfxPlateauMove=olv_presswitch_c.wav     local
+    sound sfxPlateauBreak=imp1_wall_break.wav     local
+    sound sfxPlateauFall=olv_fallfloor_c.wav      local
+    sound sfxPlateauCrush=pru_boulder_crash_c.wav local
+
+    sound inUhOh=inxj011.wav       local
+    sound inNotRight=inxj043.wav   local
+
+    # local vars
+    int state=0          local
+    flex posDelta=10.0   local
+    flex angDelta=180.0  local
+    vector posOffset     local
+    vector angOffset     local
+    int vibe             local
+    int bOnPlateau=0     local
+    float speed=0        local
+end
+
+code
+    startup:
+        Sleep(0.1); # let the engine initializes a bit
+        player = GetLocalPlayerThing();
+    return;
+
+    entered:
+        if (GetSenderRef() != brokenPlateau) return;
+        bOnPlateau = 1;
+
+        if (state == 0)
+        {
+            state = 1;
+            MoveToFrame(brokenPlateau, 1, 0.2);
+            PlaySoundThing(sfxPlateauMove, brokenPlateau, 1.0, -1, -1, 0x880);
+
+            # Shake camera
+            Sleep(0.05);
+            SetPOVShake('-0.001 0.001 -0.001', '0.01 -0.01 0.0', posDelta, angDelta);
+            Sleep(0.05);
+            SetPOVShake('0.001 -0.001 0.001', '-0.01 0.01 0.0', posDelta, angDelta);
+            Sleep(0.05);
+            SetPOVShake('-0.001 0.001 -0.001', '0.01 -0.01 0.0', posDelta, angDelta);
+
+            PlayVoice(player, inUhOh, 1.0, 1);
+            Sleep(0.1);
+            PlayVoice(player, inNotRight, 1.0, 0);
+        }
+    return;
+
+    exited:
+        bOnPlateau = 0;
+    return;
+
+    arrived:
+        # Plateau arrived to it's destination frame
+        if (state == 1)
+        {
+            # set timer to break the plateau
+            SetTimer(3);
+        }
+        else if (state == 2) {
+            PlaySoundThing(sfxPlateauCrush, brokenPlateau, 1.0,  10.0, 65.0, 0x880);
+        }
+    return;
+
+    timer:
+        if (GetMoveStatus(player) == 10) { # 10 SITHPLAYERMOVE_WHIPSWINGING
+            DetachThing(player);
+        }
+        else if (bOnPlateau)
+        {
+            MakeMeStop(); # prevent player controls
+            Sleep(0.1); # Sync
+        }
+
+        state = 2;
+        SetPulse(0.01); # start camera shake
+
+        PlaySoundThing(sfxPlateauBreak, brokenPlateau, 1.0, -1, -1, 0x880);
+        Sleep(1.0);
+        if (GetMoveStatus(player) == 10)  # 10 SITHPLAYERMOVE_WHIPSWINGING
+        {
+            Sleep(1.0); # conservative wait for the case when player has just started whip swinging
+            PlaySoundThing(sfxPlateauFall, brokenPlateau, 1.0, -1, -1, 0x880);
+        }
+        SetPulse(0.0); # stop camera shake
+
+        # accelerate plateau fall
+        speed = 1;
+        while (speed <= 32)
+        {
+            if (bOnPlateau)
+            {
+                DetachThing(player);                  # detach player from plateau,
+                ClearThingFlags(brokenPlateau, 0x40); # 0x40 - SITH_TF_STANDON; make sure player can't stick to it anymore
+                ClearActorFlags(player, 0x200000);    # enable player controls
+            }
+            else
+            {
+                speed = speed + 5;
+                MoveToFrame(brokenPlateau, 2, speed);
+            }
+
+            Sleep(0.1);
+        }
+    return;
+
+    pulse:
+        # Code for trembling the view camera
+        vibe = RandBetween(1, 4);
+        if (vibe == 1)
+        {
+            posOffset = '-0.005 0.00 -0.001';
+            angOffset = '0.00 -0.001 0.001';
+        }
+        else if (vibe == 2)
+        {
+            posOffset = '0.005 -0.002 0.001';
+            angOffset = '0.001 0.00 -0.001';
+        }
+        else if (vibe == 3)
+        {
+            posOffset = '0.002 0.002 -0.002';
+            angOffset = '-0.001 0.002 -0.002';
+        }
+        else if (vibe == 4)
+        {
+            posOffset = '-0.001 0.00 0.002';
+            angOffset = '0.00 0.00 0.001';
+        }
+
+        vibe = RandBetween(1, 3);
+        if (vibe == 1)
+        {
+            SetPulse(0.05);
+        }
+        else if (vibe == 2)
+        {
+            SetPulse(0.1);
+        }
+        else if (vibe == 3)
+        {
+            SetPulse(0.15);
+        }
+
+        SetPOVShake(posOffSet, angOffSet, 200.0, 200.0);
+    return;
+end

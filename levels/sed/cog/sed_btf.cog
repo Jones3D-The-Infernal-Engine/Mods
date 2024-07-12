@@ -1,0 +1,232 @@
+# SED back to the future script
+#
+# [Crt Vavros]
+#======================================================================================
+
+symbols
+    message startup
+    message user0
+    message pulse
+
+    cog eon nolink
+    cog waterfall nolink
+
+    thing appearPos nolink # position where indy appears
+    thing player    local
+
+    thing text      nolink
+    thing fadePlate nolink
+
+    thing camSpot   nolink
+    thing camLook1  nolink
+    thing camLook2  nolink
+
+    thing ringSpot local
+    thing ring local
+    thing orb  local
+
+    template ringTpl=+ripples_vert local
+    template orbTpl=lensflarew     local
+    template tplGhost=ghost        local
+
+    sound music=mus_cyn_intro.wav         local
+    sound fadeMagic=nub_charged_pad_c.wav local
+    sound inFallScream=inxj015.wav        local
+    sound inWhenAmI=sedxj10.wav           local
+
+    # local vars
+    int bPlayed=0      local
+    int pulseState=1   local
+    int bSwimming      local
+    int bUnderwater    local
+    int curSound       local
+    int whipMeshNum    local
+    int holsterMeshNum local
+
+    vector ringStart local
+    vector ringEnd   local
+    vector orbStart  local
+    vector orbEnd    local
+end
+
+code
+    startup:
+        Sleep(0.1); # let engine initializes a bit
+        player         = GetLocalPlayerThing();
+        whipMeshNum    = GetMeshByName(player, "inwhip");
+        holsterMeshNum = GetMeshByName(player, "inholster");
+
+        SetThingAlpha(fadePlate, 0.0);
+        SetThingAlpha(text, 0.0);
+        SetThingFlags(fadePlate, 0x80000); # disabled
+        SetThingFlags(text, 0x80000);      # disabled
+
+        ringStart = VectorSet(0.05, 0.05, 0.5);
+        ringEnd   = VectorSet(0.2, 0.275, 0.0);
+        orbStart  = VectorSet(0.05, 0.05, 0.0);
+        orbEnd    = VectorSet(0.275, 0.275, 1.0);
+    return;
+
+    user0:
+        if (bPlayed) return; # just guard because scene things are destroyed after playing cutscene
+        bPlayed = 1;
+
+        # Note, StartCutscene should be already invoked at this point
+        #StartCutscene(2);
+
+        # Play music...
+        PlaySoundLocal(music, 1.0, 0.0, 0x0, 0);
+
+        # Prepare scene
+        SendMessage(eon, user0); # move back in time
+
+        # Prepare player
+
+        # Remove all items from inventory
+        SetArmedMode(player, 0);
+        ResetInventory(player); # Reset inventory to have basic weapons
+
+        # Make whip available
+        SetInv(player, 2, 1);
+        SetInvAvailable(player, 2, 1);
+        SetHolsterModel(player, 2, whipMeshNum); # Put whip back in holster
+
+        # Make pistol available
+        SetInv(player, 3, 1);
+        SetInvAvailable(player, 3, 1);
+        SetHolsterModel(player, 3, holsterMeshNum); # Put pistol back in holster
+
+        # Hide player
+        SetThingAlpha(player, 0.0);
+        SetThingFlags(player, 0x80000);  # disabled
+        SetActorFlags(player, 0x200000); # disable controls
+        ClearThingFlags(player, 0x4000); # no shadow
+        ClearPhysicsFlags(player, 0x1);  # SITH_PF_USEGRAVITY; disable gravity to affect player
+
+        # Show fader
+        SetThingAlpha(fadePlate, 1.0);
+        ClearThingFlags(fadePlate, 0x80000); # enable
+        Sleep(0.3);
+
+        # Wait 1 sec then do fade-in
+        Sleep(1.2);
+
+        # Setup camera
+        SetCameraLookInterp(2, 0);
+        SetCameraPosInterp(2, 0);
+        SetCameraFocus(2, camSpot);
+        SetCameraSecondaryFocus(2, camLook1);
+
+        SetCurrentCamera(2);
+        SetCameraFOV(35, 0, 0);
+        SetCameraPosition(1, GetThingPos(camSpot)); # set ext camera position for later
+
+        # Start waterfall sfx
+        SendMessage(waterfall, user1);
+
+        # Fade-in and show text
+        ClearThingFlags(text, 0x80000); # enable text
+        ThingFadeAnim(fadePlate, 1.0, 0.0, 2.0, 0);
+        Sleep(1.0);
+        ThingFadeAnim(text, 0.0, 1.0, 1.0, 0);
+        Sleep(3.0);
+
+        # Fade-out text
+        ThingFadeAnim(text, 1.0, 0.0, 0.5, 0);
+        Sleep(0.5);
+
+        # Move camera look down to focus waterfall area
+        SetCameraInterpSpeed(2, 4.5);
+        SetCameraLookInterp(2, 1);
+        Sleep(0.1);
+        SetCameraSecondaryFocus(2, camLook2);
+        SetCameraFOV(75, 1, 4.5);
+        Sleep(4.5);
+
+        # Bring player back in time
+        TeleportThing(player, appearPos);
+        Sleep(0.1);
+        PlayMode(player, 83, 0); # play fall forward.. Start playing it here will make indy to play second half of falling animation when player appears
+        ClearThingFlags(player, 0x80000); # enabled
+        StopThing(player);
+
+        # Indy appears through orb portal
+        ringSpot = CreateThingAtPos(tplGhost, GetThingSector(appearPos), VectorAdd(GetThingPos(appearPos), '-0.1 -0.1 0.025'), '0 0 0');
+
+        # Set pulse speed for rings
+        SetPulse(0.25);
+
+        # Create and animate the orb
+        orb = CreateThing(orbTpl, ringSpot);
+        AnimateSpriteSize(orb, orbStart, orbEnd, 0.5);
+
+        # Play fade magic sound
+        PlaySoundLocal(fadeMagic, 1.0, -1, 0x0, 0);
+
+        # Fade in indy
+        Sleep(1.0);
+        ThingFadeAnim(player, 0, 1, 0.4, 0);
+        SetThingFlags(player, 0x4000); # shadow
+        Sleep(0.2);
+
+        # lock camera on to indy & make indy fall into water
+        ApplyForce(player, '-0.1 -0.1 0.0'); # apply little forward force to force fall forward puppet mode
+        SetPhysicsFlags(player, 0x1); # SITH_PF_USEGRAVITY; enable gravity for player
+        PlayVoice(player, inFallScream, 0.20, 0); # indy screams while falling
+        SetCameraLookInterp(2, 0);
+        SetCameraSecondaryFocus(2, player);
+        SetPulse(0);
+
+        # Diminish the orb
+        AnimateSpriteSize(orb, orbEnd, orbStart, 0.5);
+        Sleep(3.0);
+
+        # Set camera to player external view & cleanup
+        SetCurrentCamera(1);
+        DestroyThing(fadePlate);
+        DestroyThing(text);
+        DestroyThing(camSpot);
+        DestroyThing(camLook2);
+        DestroyThing(camLook2);
+        DestroyThing(orb);
+
+        ClearActorFlags(player, 0x200000); # enable player controls
+        EndCutscene();
+
+        # Start pulse say line trigger
+        pulseState = 2;
+        SetPulse(0.25);
+    return;
+
+    pulse:
+        if (pulseState == 1) # orb ring pulse logic
+        {
+            ring = CreateThing(ringTpl, ringSpot);
+            AnimateSpriteSize(ring, ringStart, ringEnd, 0.5);
+        }
+        else if (pulseState == 2) # player hint line say when player is not underwater
+        {
+            # Indy will say line once idy stick his head out of water
+            bSwimming   = BitTest(GetThingFlags(player), 0x2000000);
+            bUnderwater = bSwimming && !BitTest(GetPhysicsFlags(player), 0x100000); #0x100000 on water surface
+            if (!bUnderwater)
+            {
+                SetPulse(0);
+                Sleep(0.75);
+                pulseState = 3;
+                SetPulse(0.1);
+                curSound = PlayVoice(player, inWhenAmI, 1.0, 0);
+                WaitForSound(curSound);
+                SetPulse(0);
+            }
+        }
+        else if (pulseState == 3) # say line player underwater voice sound stop pulse
+        {
+            bSwimming   = BitTest(GetThingFlags(player), 0x2000000);
+            bUnderwater = bSwimming && !BitTest(GetPhysicsFlags(player), 0x100000); #0x100000 on water surface
+            if (bUnderwater) {
+                StopSound(curSound, 0);
+            }
+        }
+    return;
+end

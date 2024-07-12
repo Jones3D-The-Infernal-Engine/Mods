@@ -1,0 +1,48 @@
+# This COG causes actor to delay attack until player entering specified surface
+#
+# [Crt Vavros]
+# ========================================================================================
+
+symbols
+    message startup
+    message entered
+    message killed
+
+    thing actor
+    thing player local
+
+    surface trigger
+
+    int bTriggered=0 local
+    int bDead=0      local
+end
+
+code
+    startup:
+        player = GetLocalPlayerThing();
+        AISetCutsceneMode(actor);
+    return;
+
+    entered:
+        if (GetSenderRef() != trigger) return;
+        if (GetSourceRef() != player) return;
+        if (bTriggered == 1) return;
+        if (bDead == 1) return;
+
+        bTriggered = 1;
+        AIClearCutSceneMode(actor);
+        AISetFireTarget(actor, player);
+    return;
+
+    killed:
+        if (GetSenderRef() == actor) {
+            bDead = 1;
+        }
+    return;
+end
+
+
+
+
+
+

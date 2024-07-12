@@ -1,0 +1,213 @@
+# SED script for calling cable car via lever
+#
+# [Crt Vavros]
+#======================================================================================
+
+
+symbols
+    message startup
+    message activated
+
+    keyframe in_try_pull=in_pull_lever_start.key    local
+    keyframe in_try_pull_end=in_pull_lever_end.key  local
+
+    sound in_unnh=inxj033a.wav local # Unnh...
+    sound in_wont_budge=inxj098.wav  local
+
+    thing player nolink local
+
+    thing indy   nolink
+    thing camera nolink
+    thing base   mask=0x400 # only player will trigger (0x400)
+    thing lever  mask=0x400
+
+    cog cableCarCog      nolink
+    cog adjoinDisableCog nolink
+
+    thing cscam      nolink
+    thing cscamLook  nolink
+
+    sound sndLeverFix=pyr_chain_pickup.wav          local
+    sound sndLeverPull=gen_lever_pull.wav           local
+    sound sndSuccessMusic=mus_gen_indy_b_motif1.wav local
+
+    # indy dialogs
+    sound inThatWontWork=inxj058.wav        local
+    sound inLeverNoHandle=sed04j01.wav      local
+    sound inCantControl=sed04j02.wav        local
+    sound inWonderMissedHandle=sed04j03.wav local
+    sound inBetUseFoundHandle=sed04j04.wav  local
+
+    # indy animations
+    keyframe indyThinking=0in_thinking_4_4.key local
+    keyframe indyThinking2=0in_scrtch_1_1.key  local
+    keyframe indyPull=in_pull_lever.key        local
+    keyframe leverPull=gen_lever.key           local
+
+    # local vars
+    int curCam      local
+    int trackNum    local
+    int state=0     local
+    int stickBin=51 local
+    int bHinted=0   local
+    int curItem     local
+    float yaw       local
+    vector homeLVec local
+end
+
+code
+    startup:
+        player   = GetLocalPlayerThing();
+        homeLVec = GetThingLVec(indy);
+        SetThingFlags(lever, 0x80000); # disable lever
+    return;
+
+    activated:
+        if (state == 3) return;
+
+        if (state == 0 && GetSenderRef() == base) # no stick
+        {
+            curItem = GetCurItem(player);
+            if (curItem == 0)
+            {
+                if (!bHinted)
+                {
+                    MakeMeStop();
+                    DeselectWeaponWait(player);
+                    StartCutscene(1);
+
+                    # Bring in the actor
+                    CopyOrientAndPos(player, indy); # move indy to player's position
+                    CopyPlayerHolsters(player, indy);
+                    SetThingFlags(player, 0x80000); # disable player
+                    ClearThingFlags(indy, 0x80000); # disable indy
+
+                    # Position actor
+                    AISetCutsceneMode(indy);
+                    AISetLookThing(indy, base);
+                    Sleep(0.3);
+
+                    SetExtCamOffset('0.2 -0.15 0.1');
+
+                    trackNum = PlayKey(indy, indyThinking, 4, 0x20, 0);
+                    PlayVoice(indy, inLeverNoHandle, 1.0, 1);
+
+                    if (GetInv(player, stickBin) != 0)
+                    {
+                        # Indy has the stick in his inventory
+                        Sleep(0.3);
+                        PlayVoice(indy, inBetUseFoundHandle, 1.0, 1);
+                        StopKey(indy, trackNum, 1.0);
+                        Sleep(1.0);
+                    }
+                    else
+                    {
+                        Sleep(0.2);
+                        PlayVoice(indy, inCantControl, 1.0, 1);
+                        Sleep(0.3);
+                        trackNum = PlayKey(indy, indyThinking2, 4, 0x20, 0);
+                        Sleep(0.5);
+                        PlayVoice(indy, inWonderMissedHandle, 1.0, 1);
+                        Sleep(1.5); # Wait for track to finish
+                    }
+
+                    # Return control and camera to player
+                    CopyOrientAndPos(indy, player); # move player to indy's position
+                    ClearThingFlags(player, 0x80000); # enable player
+                    SetThingFlags(indy, 0x80000); # disable indy
+                    ClearActorFlags(player, 0x200000); # enable player controls
+
+                    RestoreExtCam();
+                    EndCutscene();
+                    bHinted = 1;
+                }
+            }
+            else if (curItem == stickBin) # put stick in base
+            {
+                # Fix lever
+                # Disable and hide player
+                MakeMeStop();
+                DeselectWeaponWait(player);
+                PlayMode(player, 60, 0); # 60 - activate
+                Sleep(0.3);
+
+                PlaySoundLocal(sndLeverFix, 1, 0, 0, 0);
+                ClearThingFlags(lever, 0x80000);
+                SetThingFlags(base, 0x80000);
+                ClearActorFlags(player, 0x200000); # enable player controls
+                state = state + 1;
+            }
+            else
+            {
+                PlayVoice(player, inThatWontWork, 1, 1);
+            }
+        }
+        else if (state == 1 && GetSenderRef() == lever) # pull lever
+        {
+            yaw = VectorDot(GetThingLVec(player), GetThingLVec(lever));
+            PrintFlex(yaw);
+            if (yaw < 0.80) return;
+
+            MakeMeStop();
+            DeselectWeaponWait(player);
+            StartCutscene(1);
+
+            # Bring in the actor
+            CopyOrientAndPos(player, indy); # move indy to player's position
+            CopyPlayerHolsters(player, indy);
+            SetThingFlags(player, 0x80000); # disable player
+            ClearThingFlags(indy, 0x80000); # disable indy
+
+            # Cut to cutscene camera
+            curCam = GetCurrentCamera(); # remember the current camera
+            SetCameraFocus(2, camera);
+            SetCameraSecondaryFocus(2, lever);
+            SetCurrentCamera(2);
+            SetCameraFOV(90, 0, 0.0);
+
+            # Position actor with the lever
+            AISetCutsceneMode(indy);
+            AISetMoveSpeed(indy, 0.8);
+            AISetLookThing(indy, lever);
+            AISetMovePos(indy, AIGetHomePos(indy), 1);
+
+            AISetLookPos(indy, VectorAdd(AIGetHomePos(indy), homeLVec));
+            AIWaitForStop(indy);
+            Sleep(0.4);
+
+            # Call cable car
+            SendMessage(cableCarCog, user0);
+
+            PlayKey(lever, leverPull, 4, 0x14, 0);
+            PlayKey(indy, indyPull, 4, 0x12, 0);
+            Sleep(1.2);
+            PlaySoundLocal(sndLeverPull, 1.0, 0.0, 0x0, 1);
+
+            Sleep(1.0);
+
+            # Look at cable car
+            SendMessage(adjoinDisableCog, user1); # show mine
+            SetCameraFocus(2, cscam);
+            SetCameraSecondaryFocus(2, cscamLook);
+            PlaySoundLocal(sndSuccessMusic, 1.0, 0.0, 0x0, 1);
+
+            # Return control and camera to player
+            CopyOrientAndPos(indy, player);    # move player to indy's position
+            Sleep(0.3);
+            SetThingFlags(indy, 0x80000);      # hide indy
+            ClearThingFlags(player, 0x80000);
+
+            Sleep(1.5); # wait cutscene to finish
+            ClearActorFlags(player, 0x200000); # enable player controls
+            SetCurrentCamera(curCam);          # restore camera
+
+            EndCutscene();
+            state = state + 1;
+
+            # Cleanup
+            SendMessage(adjoinDisableCog, user0); # hide mine
+            DestroyThing(base);
+            DestroyThing(indy);
+        }
+    return;
+end

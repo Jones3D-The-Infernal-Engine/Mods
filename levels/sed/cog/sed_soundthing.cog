@@ -1,0 +1,25 @@
+# General purpose loop playing sound thing COG
+# ========================================================================================
+
+symbols
+    message startup
+
+    sound thesound
+
+    thing soundobj
+
+    int soundfx local
+
+    int mindist
+    int maxdist
+    flex volume=0.1
+end
+
+code
+    startup:
+        Sleep(2);
+        soundfx = PlaySoundThing(thesound, soundobj, volume, mindist, maxdist, 0x81);
+    return;
+end
+
+
