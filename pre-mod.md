@@ -2,11 +2,20 @@
 
 Before starting, I suggest that you make a copy of the installed game directory in case you make a mistake in the procedure.
 
+# Automated methods:
+
+The following automated methods *only* work with a clean install of the game.
+
+NekoJonez has written a PowerShell script to automate this process. For more information, you can look here: https://github.com/NekoJonez/RandomProjects/tree/main/Indiana%20Jones%20Custom%20Levels%20project <br>
+the_Kovic has written a C# installer/script to automate this process. For more information, you can look here: https://github.com/thekovic/Indy3DModInstaller/tree/main
+
+# Manual method:
+
 # Prerequisite
 Download all required tools from: https://github.com/smlu/ProjectMarduk
 
 # I. Extract main archives. (.GOB)
-1. Extract CD1.gob CD2.gob and JONES3D.gob using `gobext.exe`
+1. Extract CD1.gob, CD2.gob and JONES3D.gob using `gobext.exe`
 2. You must have different new folders (*3do*, *cog*, ...) in the *Resource* folder.
 3. Delete the .GOB files. Then launch your game, if it works you are on the good way. Else retry.
 
@@ -15,11 +24,11 @@ Download all required tools from: https://github.com/smlu/ProjectMarduk
 2. In *NDY* folder, you should have several folders with the name of levels.
 3. For each of them:
     * Move the extracted `key` folder to `<game_install>\Resource\3do\`
-    * Move the extracted `mat` and "sound" folders to `<game_install>\Resource\`
+    * Move the extracted `mat` and `sound` folders to `<game_install>\Resource\`
 4. You can delete the extracted folders in *NDY* folder, they are now useless.
 
 # III. Set the game to start in developer mode.
-There are 2 options to run the game in developer mode:
+There are 2 methods to change the game to run in developer mode:
 
 a.) Download and run the [devmode.bat](scripts/devmode.bat) script found in [scripts](scripts) folder.  
 *The script requires administration privileges to make changes under `HKEY_LOCAL_MACHINE` - Steam version and original installation.*
@@ -50,6 +59,5 @@ b.) Manually change the game config in Windows registry:
 After the devmode config is set, launch the game (e.g.: through `Indy3D.exe` located in *Resource* folder) and the developer window should pop-up:  
 ![J3D_docu_devmenu.jpg](resources/images/J3D_docu_devmenu.jpg)  
 Try to start a random `.CND` level, if it works you are on the good way. Else retry.
-
 
 **You should now be able to load any original or custom level.**
