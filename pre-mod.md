@@ -7,7 +7,7 @@ Before starting, I suggest that you make a copy of the installed game directory 
 The following automated methods *only* work with a clean install of the game.
 
 NekoJonez has written a PowerShell script to automate this process. For more information, you can look here: https://github.com/NekoJonez/RandomProjects/tree/main/Indiana%20Jones%20Custom%20Levels%20project <br>
-the_Kovic has written a C# installer/script to automate this process. For more information, you can look here: https://github.com/thekovic/Indy3DModInstaller/tree/main
+the_kovic has written a tool in C# that automates this process. For more information, look here: https://github.com/thekovic/Indy3DModInstaller/releases
 
 # Manual method:
 
