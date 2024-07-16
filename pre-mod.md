@@ -2,12 +2,12 @@
 
 Before starting, I suggest that you make a copy of the installed game directory in case you make a mistake in the procedure.
 
-# Automated methods:
+# Automated method:
 
 The following automated methods *only* work with a clean install of the game.
 
-NekoJonez has written a PowerShell script to automate this process. For more information, you can look here: https://github.com/NekoJonez/RandomProjects/tree/main/Indiana%20Jones%20Custom%20Levels%20project <br>
-the_kovic has written a tool in C# that automates this process. For more information, look here: https://github.com/thekovic/Indy3DModInstaller/releases
+NekoJonez has written a PowerShell script to automate this process.<br>For more information, you can look here: https://github.com/NekoJonez/RandomProjects/tree/main/Indiana%20Jones%20Custom%20Levels%20project <br><br>
+the_kovic has written a tool in C# that automates this process.<br>For more information, look here: https://github.com/thekovic/Indy3DModInstaller/releases
 
 # Manual method:
 
@@ -17,7 +17,7 @@ Download all required tools from: https://github.com/smlu/ProjectMarduk
 # I. Extract main archives. (.GOB)
 1. Extract CD1.gob, CD2.gob and JONES3D.gob using `gobext.exe`
 2. You must have different new folders (*3do*, *cog*, ...) in the *Resource* folder.
-3. Delete the .GOB files. Then launch your game, if it works you are on the good way. Else retry.
+3. Rename the `*.GOB` files to `*.GOB.bak`. Then launch your game, if it works you are on the good way. Else retry.
 
 # II. Extract game assets from compact level files. (.CND)
 1. Extract all game resources from CND files in *NDY* folder using `cndtool.exe`
