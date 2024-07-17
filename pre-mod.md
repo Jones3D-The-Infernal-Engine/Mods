@@ -6,7 +6,7 @@ Before starting, I suggest that you make a copy of the installed game directory 
 
 The following automated methods *only* work with a clean install of the game.
 
-NekoJonez has written a PowerShell script to automate this process.<br>For more information, you can look here: https://github.com/NekoJonez/RandomProjects/releases/tag/IndianaJonesPatcher <br>
+NekoJonez has written a PowerShell script to automate this process.<br>For more information, you can look here: https://github.com/NekoJonez/RandomProjects/releases/tag/IndianaJonesPatcher <br><br>
 the_kovic has written a tool in C# that automates this process.<br>For more information, look here: https://github.com/thekovic/Indy3DModInstaller/releases
 
 # Manual method:
