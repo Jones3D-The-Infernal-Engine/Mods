@@ -4,10 +4,16 @@ Before starting, I suggest that you make a copy of the installed game directory 
 
 # Automated method:
 
-The following automated methods *only* work with a clean install of the game.
+> Note: The following automated methods only work with a *clean* install of the game.
 
-NekoJonez has written a PowerShell script to automate this process.<br>For more information, you can look here: https://github.com/NekoJonez/RandomProjects/releases <br><br>
-the_kovic has written a tool in C# that automates this process.<br>For more information, look here: https://github.com/thekovic/Indy3DModInstaller/releases
+### Indy3D Mod Installer (GUI)
+
+the_kovic has written a **graphical tool for Windows** that automates this process and can install mods for you. Read more information about the tool and how to use it in its [README](https://github.com/thekovic/Indy3DModInstaller/blob/main/README.md).
+- **Download the tool** from GitHub: https://github.com/thekovic/Indy3DModInstaller/releases/latest
+
+### IndyPatcher (Powershell)
+
+NekoJonez has written a PowerShell script to automate this process.<br>For more information, you can look here: https://github.com/NekoJonez/RandomProjects/releases
 
 # Manual method:
 
